@@ -40,6 +40,5 @@ class ProfileService:
         if profile_data.password is not None:
             user.password = PasswordHandler.hash(profile_data.password)
 
-
         await user.save()
         return user

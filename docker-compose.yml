@@ -4,7 +4,7 @@ services:
   backend:
     build: .
     ports:
-      - "9002:9002"
+      - "9005:9002"
     volumes:
       - .:/app
     env_file:

@@ -2,7 +2,7 @@ import datetime
 from enum import Enum
 from typing import List, Optional
 from beanie import Document
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.models.question import Question
 from src.models.enums import QuizSubject, QuizType
@@ -19,7 +19,7 @@ class QuizStructure(BaseModel):
     question_count: int
 
 class Quiz(Document):
-    variant: str
+    variant: str 
     year: str
     title: str
     structure: List[QuizStructure] = [QuizStructure(**sub) for sub in DEFAULT_SUBJECTS]

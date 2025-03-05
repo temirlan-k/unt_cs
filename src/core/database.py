@@ -3,6 +3,8 @@ import os
 from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 from src.models.user import User
+from src.models.question import *
+from src.models.quiz import *
 
 client = None
 db = None
@@ -14,5 +16,9 @@ async def init_db():
     db = client.unt_cs
     await init_beanie(
         database=db,
-        document_models=[User],
+        document_models=[
+            User,
+            Question,
+            Quiz
+        ],
     )

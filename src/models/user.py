@@ -14,7 +14,7 @@ class User(Document):
     role:UserRoleEnum = UserRoleEnum.STUDENT
     email: str
     password: str
-    score: int = 0
+    total_score: int = 0
 
     class Settings:
         collection = "users"

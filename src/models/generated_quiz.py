@@ -31,13 +31,13 @@ class GeneratedQuiz(Document):
 class UserAnswer(BaseModel):
     question_id: PydanticObjectId
     selected_options: List[str]
-    score: int 
+    score: int  = 0
 
 class UserGeneratedQuizAttempt(Document):
     user_id: PydanticObjectId
     quiz_id: PydanticObjectId
     answers: List[UserAnswer] = []
-    score: Optional[int] = None
+    score: Optional[int] = 0
     started_at: datetime
     finished_at: Optional[datetime] = None
 

@@ -2,7 +2,7 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends
 from typing import List
 from src.services.generated_quiz import QuizGeneratorService
-from src.schemas.req.generated_quiz import QuizGenerationRequest
+from src.schemas.req.generated_quiz import QuizGenerationRequest, UserAnswerRequest
 from src.models.user_answer import AnswerCreate, UserAnswer
 from src.core.auth_middleware import get_current_user
 from src.schemas.req.quiz import QuizCreateDTO, QuizAttemptDTO, QuestionDTO
@@ -43,7 +43,7 @@ async def start_quiz_attempt(
     service: QuizGeneratorService = Depends(QuizGeneratorService)
 ):
     user_id = PydanticObjectId(token.get("sub"))
-    return await service.start_quiz_attempt( quiz_id,user_id)
+    return await service.start_quiz_attempt( user_id,quiz_id)
 
 @generated_quiz_router.post("/{attempt_id}/submit", )
 async def submit_quiz_attempt(
@@ -65,7 +65,8 @@ async def get_user_attempts(
 @generated_quiz_router.post("/{attempt_id}/answer", )
 async def answer_question(
     attempt_id: PydanticObjectId,
-    answer: UserAnswer,
+    answer: UserAnswerRequest,
     service: QuizGeneratorService = Depends(QuizGeneratorService)
 ):
     return await service.answer_question(attempt_id, answer)
+

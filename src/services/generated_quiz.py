@@ -2,6 +2,7 @@ from datetime import datetime
 import json
 from typing import List
 from beanie import PydanticObjectId
+from src.schemas.req.generated_quiz import UserAnswerRequest
 from src.models.generated_quiz import GeneratedQuiz, GeneratedQuestion, QuestionOption, UserAnswer, UserGeneratedQuizAttempt
 from src.helpers.llm import LLMClient
 from fastapi import HTTPException
@@ -98,12 +99,12 @@ class QuizGeneratorService:
 
         await attempt.save()
         return attempt
-
-
+    
+    
     async def answer_question(
         self, 
         attempt_id: PydanticObjectId, 
-        answer: UserAnswer
+        answer: UserAnswerRequest
     ):
         """Добавляет ответ на вопрос в текущую попытку"""
         attempt = await UserGeneratedQuizAttempt.get(attempt_id)
@@ -121,6 +122,10 @@ class QuizGeneratorService:
         if not question:
             raise HTTPException(status_code=404, detail="Question not found")
 
+        # Проверка, был ли уже дан ответ на этот вопрос в текущей попытке
+        if any(ans.question_id == answer.question_id for ans in attempt.answers):
+            raise HTTPException(status_code=400, detail="Question already answered in this attempt")
+
         # Подсчет баллов
         correct_options = {opt.label for opt in question.options if opt.is_correct}
         selected_options = set(answer.selected_options)
@@ -128,21 +133,27 @@ class QuizGeneratorService:
         selected_correct = len(selected_options & correct_options)
         total_correct = len(correct_options)
 
+        score = 0
         if question.type == "single_choice":
-            answer.score = 1 if selected_correct == 1 else 0
+            score = 1 if selected_correct == 1 else 0
         elif question.type == "multiple_choice":
-            if selected_correct == total_correct:
-                answer.score = 2
-            elif selected_correct > 0:
-                answer.score = 1
-            else:
-                answer.score = 0
+            if selected_options == correct_options:  # Полностью правильный ответ
+                score = 2
+            elif selected_correct > 0 and selected_options.issubset(correct_options):  # Частично правильный без ошибок
+                score = 1
+            else:  # Если есть хотя бы одна ошибка
+                score = 0
 
-        attempt.answers.append(answer)
-        attempt.score += answer.score
+        user_answer = UserAnswer(
+            question_id=answer.question_id,
+            selected_options=answer.selected_options,
+            score=score
+        )
+
+        if attempt.score is None:
+            attempt.score = 0
+        attempt.answers.append(user_answer)
+        attempt.score += score
 
         await attempt.save()
-        return {"message": "Answer submitted", "score": answer.score}
-
-
-
+        return {"message": "Answer submitted", "score": score}

@@ -203,7 +203,7 @@ class QuizService:
 
 
 
-    async def get_detailed_answers(self,attempt_id: PydanticObjectId,user_id:PydanticObjectId):
+    async def get_detailed_answers(self, attempt_id: PydanticObjectId, user_id: PydanticObjectId):
         attempt = await UserQuizAttempt.get(attempt_id)
         if not attempt:
             raise HTTPException(status_code=404, detail="Quiz attempt not found")
@@ -211,5 +211,6 @@ class QuizService:
             raise HTTPException(status_code=403, detail="Access denied")
         
         user_answers = await UserAnswer.find({"attempt_id": attempt_id}).to_list()
-        questions = {q.id: q for q in await Question.find({"_id": {"$in": [ua.question_id for ua in user_answers]}}).to_list()}
-        return questions
+        question_list = await Question.find({"_id": {"$in": [ua.question_id for ua in user_answers]}}).to_list()
+            
+        return question_list

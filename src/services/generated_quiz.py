@@ -7,6 +7,9 @@ from src.models.generated_quiz import GeneratedQuiz, GeneratedQuestion, Question
 from src.helpers.llm import LLMClient
 from fastapi import HTTPException
 
+from fastapi import HTTPException
+from fastapi.encoders import jsonable_encoder
+from bson import ObjectId
 
 
 class QuizGeneratorService:
@@ -37,9 +40,57 @@ class QuizGeneratorService:
 
         return generated_quiz
 
+
     async def get_user_attempts(self, user_id: PydanticObjectId):
-        """Получает все попытки прохождения тестов пользователем"""
-        return await UserGeneratedQuizAttempt.find(UserGeneratedQuizAttempt.user_id == user_id).to_list()
+        """Возвращает список попыток пользователя с добавлением quiz_title и полной информации о вопросах"""
+        attempts = await UserGeneratedQuizAttempt.find(UserGeneratedQuizAttempt.user_id == user_id).to_list()
+        
+        if not attempts:
+            raise HTTPException(status_code=404, detail="No attempts found")
+
+        # Собираем все quiz_id и question_id из попыток
+        quiz_ids = {attempt.quiz_id for attempt in attempts}
+        question_ids = {answer.question_id for attempt in attempts for answer in attempt.answers}
+
+        # Загружаем все викторины
+        quizzes = await GeneratedQuiz.find({"_id": {"$in": list(quiz_ids)}}).to_list()
+        quiz_map = {quiz.id: quiz for quiz in quizzes}
+
+        # Собираем все вопросы
+        questions_map = {}
+        for quiz in quizzes:
+            for question in quiz.questions:
+                questions_map[question.id] = question
+
+        # Формируем респонс с полной инфой
+        response = []
+        for attempt in attempts:
+            quiz = quiz_map.get(attempt.quiz_id)
+            if not quiz:
+                continue  # Пропускаем, если quiz_id не найден
+
+            attempt_data = jsonable_encoder(attempt)
+            attempt_data["id"] = str(attempt.id)
+            attempt_data["user_id"] = str(attempt.user_id)
+            attempt_data["quiz_id"] = str(attempt.quiz_id)
+            attempt_data["quiz_title"] = quiz.title
+            attempt_data["quiz_subject"] = quiz.subject
+
+            # Добавляем полные данные о вопросах
+            for answer in attempt_data["answers"]:
+                question = questions_map.get(ObjectId(answer["question_id"]))
+                if question:
+                    answer["question_id"] = str(answer["question_id"])
+                    answer["question_text"] = question.question_text
+                    answer["options"] = [
+                        {"label": option.label, "text": option.option_text, "is_correct": option.is_correct}
+                        for option in question.options
+                    ]
+
+            response.append(attempt_data)
+
+        return response
+
 
     async def get_all_quizzes(self):
         return await GeneratedQuiz.find_all().to_list()

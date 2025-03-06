@@ -42,3 +42,10 @@ class ProfileService:
 
         await user.save()
         return user
+
+
+    async def get_leaderboard(skip: int = 0, limit: int = 10):
+        """Возвращает топ пользователей по total_score с поддержкой пагинации"""
+        users = await User.find().sort("-total_score").skip(skip).limit(limit).to_list()
+        return users
+        

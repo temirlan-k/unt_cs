@@ -22,3 +22,11 @@ async def me(
     profile_service: ProfileService = Depends(ProfileService),
 ):
     return await profile_service.get_user_by_id(token.get("sub"))
+
+
+@profile_router.get('/leaderboard')
+async def leaderboard(
+    skip: int = 0, limit: int = 10,
+    profile_service: ProfileService = Depends(ProfileService),
+):
+    return await profile_service.get_leaderboard(skip,limit)

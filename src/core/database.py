@@ -1,5 +1,4 @@
 import os
-
 from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 from src.models.user import User
@@ -14,7 +13,7 @@ db = None
 
 async def init_db():
     global client, db
-    client = AsyncIOMotorClient("mongodb://mongodb:27017/unt_cs")
+    client = AsyncIOMotorClient(os.getenv("DB_URL"))
     db = client.unt_cs
     await init_beanie(
         database=db,

@@ -64,3 +64,25 @@ async def get_quiz_questions(
 ):
     """Получить список вопросов для квиза"""
     return await quiz_service.get_quiz_questions(quiz_id,subject)
+
+
+
+@quiz_router.get("/attempts", )
+async def get_user_quiz_attempts(
+    quiz_service: QuizService = Depends(QuizService),
+    token: dict = Depends(get_current_user),
+):
+    """Получить список историю попыток куизов"""
+    return await quiz_service.get_user_quiz_attempts(token.get('sub'))
+
+
+
+@quiz_router.get("/{attempt_id}/detailed_answers", )
+async def get_detailed_answers(
+    attempt_id: PydanticObjectId, 
+    quiz_service: QuizService = Depends(QuizService),
+    token: dict = Depends(get_current_user),
+):
+    """Получить детальные ответы на вопросы по попытке юзера"""
+    
+    return await quiz_service.get_detailed_answers(attempt_id,token.get('sub'))

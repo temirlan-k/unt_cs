@@ -5,6 +5,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from src.models.user import User
 from src.models.question import *
 from src.models.quiz import *
+from src.models.quiz_session import UserQuizAttempt
+from src.models.user_answer import UserAnswer
 
 client = None
 db = None
@@ -19,6 +21,8 @@ async def init_db():
         document_models=[
             User,
             Question,
-            Quiz
+            Quiz,
+            UserAnswer,
+            UserQuizAttempt
         ],
     )

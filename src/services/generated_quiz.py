@@ -6,11 +6,11 @@ from src.helpers.llm import LLMClient
 
 
 class QuizGeneratorService:
-    def __init__(self, llm_client: LLMClient):
-        self.llm_client = LLMClient()
 
     async def generate_quiz(self, user_prompt: str, user_id:PydanticObjectId) -> GeneratedQuiz:
-        response = await self.llm_client.generate_response(user_prompt)
+        llm_client = LLMClient()
+            
+        response = await llm_client.generate_response(user_prompt)
 
         quiz_data = json.loads(response)
 

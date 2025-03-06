@@ -14,7 +14,6 @@ from src.models.enums import QuizSubject
 generated_quiz_router = APIRouter()
 
 
-
 @generated_quiz_router.post('/generated_quiz')
 async def generate_quiz(
     user_prompt:QuizGenerationRequest,

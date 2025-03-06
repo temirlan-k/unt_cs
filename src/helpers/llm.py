@@ -86,11 +86,7 @@ class LLMClient:
                 messages=messages
             )
             llm_response = response.choices[0].message.content
-            if isinstance(llm_response, bytes):
-                llm_response = llm_response.decode('utf-8')
-
-            parsed_response = json.loads(llm_response)
-            return parsed_response
+            return llm_response
         except json.JSONDecodeError:
             return {"response": llm_response, "error": "Response is not in JSON format."}
         except Exception as e:

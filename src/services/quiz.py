@@ -120,10 +120,10 @@ class QuizService:
             "total_score": total_score,
         }
     
-    async def get_quiz_questions(self, quiz_id: PydanticObjectId, subject: QuizSubject):
+    async def get_quiz_questions(self, quiz_id: PydanticObjectId):
         """Получить список вопросов для квиза"""
         questions = await Question.find(
-            {"quiz_id": quiz_id, "subject": subject.value}  
+            {"quiz_id": quiz_id,}  
         ).to_list()
         
         return [

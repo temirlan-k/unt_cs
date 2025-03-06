@@ -58,12 +58,11 @@ async def submit_answer(
 @quiz_router.get("/{quiz_id}/questions", )
 async def get_quiz_questions(
     quiz_id: PydanticObjectId,
-    subject: QuizSubject,
     quiz_service: QuizService = Depends(QuizService),
     token: dict = Depends(get_current_user),
 ):
     """Получить список вопросов для квиза"""
-    return await quiz_service.get_quiz_questions(quiz_id,subject)
+    return await quiz_service.get_quiz_questions(quiz_id)
 
 
 
@@ -84,5 +83,4 @@ async def get_detailed_answers(
     token: dict = Depends(get_current_user),
 ):
     """Получить детальные ответы на вопросы по попытке юзера"""
-    
     return await quiz_service.get_detailed_answers(attempt_id,token.get('sub'))

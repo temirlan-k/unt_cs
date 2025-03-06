@@ -8,7 +8,9 @@ from src.models.question import Question
 from src.models.quiz_session import UserQuizAttempt
 from src.schemas.req.quiz import QuizCreateDTO
 from src.schemas.req.quiz import QuestionDTO
+from src.models.enums import QuizSubject
 from datetime import datetime
+
 
 class QuizService:
     async def create_quiz(self, quiz_data: QuizCreateDTO):
@@ -90,7 +92,6 @@ class QuizService:
         if not question:
             raise HTTPException(status_code=404,detail='Question not found')
 
-        # Проверяем, правильный ли ответ
         correct_option = next((opt for opt in question.options if opt.is_correct), None)
         is_correct = correct_option.label == answer_data.option_label if correct_option else False
 
@@ -104,9 +105,11 @@ class QuizService:
 
         return user_answer
     
-    async def get_quiz_questions(self, quiz_id: PydanticObjectId):
+    async def get_quiz_questions(self, quiz_id: PydanticObjectId,subject: QuizSubject):
         """Получить список вопросов для квиза"""
-        questions = await Question.find(Question.quiz_id == quiz_id).to_list()
+        questions = await Question.find(
+            {"quiz_id": quiz_id, "subject": subject.value}  
+        ).to_list()
         
         return [
             QuestionResponse(

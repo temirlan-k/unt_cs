@@ -7,6 +7,7 @@ from src.schemas.req.quiz import QuizCreateDTO, QuizAttemptDTO, QuestionDTO
 from src.services.quiz import QuizService
 from src.models.quiz import Quiz
 from src.models.quiz_session import UserQuizAttempt
+from src.models.enums import QuizSubject
 
 quiz_router = APIRouter()
 
@@ -57,8 +58,10 @@ async def submit_answer(
 @quiz_router.get("/{quiz_id}/questions", )
 async def get_quiz_questions(
     quiz_id: PydanticObjectId,
+    subject: QuizSubject,
     quiz_service: QuizService = Depends(QuizService),
+
     token: dict = Depends(get_current_user),
 ):
     """Получить список вопросов для квиза"""
-    return await quiz_service.get_quiz_questions(quiz_id)
+    return await quiz_service.get_quiz_questions(quiz_id,subject)

@@ -13,7 +13,6 @@ async def update_profile(
     token: dict = Depends(get_current_user),
     profile_service: ProfileService = Depends(ProfileService),
 ):
-
     return await profile_service.update_profile(token.get("sub"), req)
 
 

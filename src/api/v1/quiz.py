@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from typing import List
+from src.core.auth_middleware import get_current_user
 from src.schemas.req.quiz import QuizCreateDTO, QuizAttemptDTO, QuestionDTO
 from src.services.quiz import QuizService
 from src.models.quiz import Quiz
@@ -23,11 +24,21 @@ async def get_all_quizzes(quiz_service: QuizService = Depends(QuizService)):
     return await quiz_service.get_all_quizzes()
 
 @quiz_router.post("/{quiz_id}/start", )
-async def start_quiz_attempt(quiz_id: str, user_id: str, quiz_service: QuizService = Depends(QuizService)):
+async def start_quiz_attempt(
+    quiz_id: str, 
+    quiz_service: QuizService = Depends(QuizService),
+    token: dict = Depends(get_current_user),
+):
     """Начать попытку квиза"""
-    return await quiz_service.start_quiz_attempt(quiz_id, user_id)
+    return await quiz_service.start_quiz_attempt(quiz_id, token.get('sub'))
 
 @quiz_router.post("/attempts/{attempt_id}/submit", )
-async def submit_quiz_attempt(attempt_id: str, score: float, quiz_service: QuizService = Depends(QuizService)):
+async def submit_quiz_attempt(
+    attempt_id: str, 
+    quiz_service: QuizService = Depends(QuizService),
+    token: dict = Depends(get_current_user),
+):
     """Завершить квиз"""
-    return await quiz_service.submit_quiz_attempt(attempt_id, score)
+    return await quiz_service.submit_quiz_attempt(attempt_id, token.get('sub'))
+
+

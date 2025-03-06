@@ -212,5 +212,57 @@ class QuizService:
         
         user_answers = await UserAnswer.find({"attempt_id": attempt_id}).to_list()
         question_list = await Question.find({"_id": {"$in": [ua.question_id for ua in user_answers]}}).to_list()
-            
+
         return question_list
+
+
+    async def get_attempt_details(self, attempt_id: PydanticObjectId, user_id: PydanticObjectId):
+        """Возвращает подробную информацию о конкретной попытке пользователя."""
+        attempt = await UserQuizAttempt.get(attempt_id)
+        if not attempt:
+            raise HTTPException(status_code=404, detail="Quiz attempt not found")
+        if attempt.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Загружаем ответы пользователя на этот квиз
+        user_answers = await UserAnswer.find({"attempt_id": attempt_id}).to_list()
+        question_ids = [ua.question_id for ua in user_answers]
+        
+        # Загружаем вопросы и сам квиз
+        questions = await Question.find({"_id": {"$in": question_ids}}).to_list()
+        quiz = await Quiz.get(attempt.quiz_id)
+        if not quiz:
+            raise HTTPException(status_code=404, detail="Quiz not found")
+
+        # Преобразуем вопросы в удобный формат
+        question_map = {q.id: q for q in questions}
+
+        # Формируем ответ
+        response = {
+            "attempt_id": str(attempt.id),
+            "quiz_id": str(attempt.quiz_id),
+            "user_id": str(attempt.user_id),
+            "quiz_title": quiz.title,
+            "quiz_variant": quiz.variant,
+            "quiz_year": quiz.year,
+            "answers": []
+        }
+
+        for ua in user_answers:
+            question = question_map.get(ua.question_id)
+            if question:
+                response["answers"].append({
+                    "question_id": str(question.id),
+                    "question_text": question.question_text,
+                    "options": [
+                        {
+                            "label": opt.label,
+                            "option_text": opt.option_text,
+                            "is_correct": opt.is_correct
+                        }
+                        for opt in question.options
+                    ],
+                    "selected_option": ua.selected_option  # Добавляем выбор пользователя
+                })
+
+        return response

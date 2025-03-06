@@ -84,3 +84,12 @@ async def get_detailed_answers(
 ):
     """Получить детальные ответы на вопросы по попытке юзера"""
     return await quiz_service.get_detailed_answers(attempt_id,PydanticObjectId(token.get('sub')))
+
+@quiz_router.get("/{attempt_id}/attempt_details", )
+async def get_detailed_answers(
+    attempt_id: PydanticObjectId, 
+    quiz_service: QuizService = Depends(QuizService),
+    token: dict = Depends(get_current_user),
+):
+    """Получить детальные ответы на вопросы по попытке юзера"""
+    return await quiz_service.get_attempt_details(attempt_id,PydanticObjectId(token.get('sub')))

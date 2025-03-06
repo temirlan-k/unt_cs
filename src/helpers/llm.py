@@ -79,7 +79,7 @@ class LLMClient:
         try:
             messages = [
                 {"role": "system", "content": prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": f'20 вопросов по - {user_prompt}'}
             ]            
             response = await self.openai.chat.completions.create(
                 model='openai/gpt-4o-mini-2024-07-18',

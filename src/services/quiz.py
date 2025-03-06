@@ -1,5 +1,6 @@
 from beanie import PydanticObjectId
 from fastapi import HTTPException
+from src.schemas.res.question import OptionResponse, QuestionResponse
 from src.models.user_answer import AnswerCreate, UserAnswer
 from src.models.user import User
 from src.models.quiz import Quiz, QuizStructure
@@ -106,4 +107,18 @@ class QuizService:
     async def get_quiz_questions(self, quiz_id: PydanticObjectId):
         """Получить список вопросов для квиза"""
         questions = await Question.find(Question.quiz_id == quiz_id).to_list()
-        return questions
+        
+        return [
+            QuestionResponse(
+                id=(q.id),
+                quiz_id=q.quiz_id,
+                type=q.type,
+                subject=q.subject,
+                question_text=q.question_text,
+                options=[
+                    OptionResponse(label=o.label, option_text=o.option_text) 
+                    for o in q.options
+                ]
+            )
+            for q in questions
+        ]

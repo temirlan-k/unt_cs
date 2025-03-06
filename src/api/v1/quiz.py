@@ -60,7 +60,6 @@ async def get_quiz_questions(
     quiz_id: PydanticObjectId,
     subject: QuizSubject,
     quiz_service: QuizService = Depends(QuizService),
-
     token: dict = Depends(get_current_user),
 ):
     """Получить список вопросов для квиза"""

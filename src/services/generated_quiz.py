@@ -19,6 +19,7 @@ class QuizGeneratorService:
 
         questions = [
             GeneratedQuestion(
+                id=PydanticObjectId(),
                 type=question_data["type"],
                 question_text=question_data["question_text"],
                 options=[QuestionOption(**option) for option in question_data["options"]]
@@ -97,6 +98,51 @@ class QuizGeneratorService:
 
         await attempt.save()
         return attempt
+
+
+    async def answer_question(
+        self, 
+        attempt_id: PydanticObjectId, 
+        answer: UserAnswer
+    ):
+        """Добавляет ответ на вопрос в текущую попытку"""
+        attempt = await UserGeneratedQuizAttempt.get(attempt_id)
+        if not attempt:
+            raise HTTPException(status_code=404, detail="Attempt not found")
+
+        if attempt.finished_at:
+            raise HTTPException(status_code=400, detail="Attempt already finished")
+
+        quiz = await GeneratedQuiz.get(attempt.quiz_id)
+        if not quiz:
+            raise HTTPException(status_code=404, detail="Quiz not found")
+
+        question = next((q for q in quiz.questions if q.id == answer.question_id), None)
+        if not question:
+            raise HTTPException(status_code=404, detail="Question not found")
+
+        # Подсчет баллов
+        correct_options = {opt.label for opt in question.options if opt.is_correct}
+        selected_options = set(answer.selected_options)
+
+        selected_correct = len(selected_options & correct_options)
+        total_correct = len(correct_options)
+
+        if question.type == "single_choice":
+            answer.score = 1 if selected_correct == 1 else 0
+        elif question.type == "multiple_choice":
+            if selected_correct == total_correct:
+                answer.score = 2
+            elif selected_correct > 0:
+                answer.score = 1
+            else:
+                answer.score = 0
+
+        attempt.answers.append(answer)
+        attempt.score += answer.score
+
+        await attempt.save()
+        return {"message": "Answer submitted", "score": answer.score}
 
 
 

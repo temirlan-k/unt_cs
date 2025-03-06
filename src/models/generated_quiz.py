@@ -14,6 +14,7 @@ class QuestionOption(BaseModel):
     is_correct: bool = False
 
 class GeneratedQuestion(BaseModel):
+    id: PydanticObjectId = PydanticObjectId()
     type: QuestionType
     question_text: str
     options: List[QuestionOption]
@@ -31,7 +32,6 @@ class UserAnswer(BaseModel):
     question_id: PydanticObjectId
     selected_options: List[str]
     score: int 
-
 
 class UserGeneratedQuizAttempt(Document):
     user_id: PydanticObjectId

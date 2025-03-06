@@ -14,7 +14,7 @@ from src.models.enums import QuizSubject
 generated_quiz_router = APIRouter()
 
 
-@generated_quiz_router.post('/generated_quiz')
+@generated_quiz_router.post('/')
 async def generate_quiz(
     user_prompt:QuizGenerationRequest,
     quiz_generator_service: QuizGeneratorService = Depends(QuizGeneratorService),
@@ -22,12 +22,12 @@ async def generate_quiz(
 ):
     return await quiz_generator_service.generate_quiz(user_prompt.user_prompt, PydanticObjectId(token.get('sub')))
 
-@generated_quiz_router.get("/generated_quizzes",)
+@generated_quiz_router.get("/",)
 async def get_all_quizzes(service: QuizGeneratorService = Depends(QuizGeneratorService)):
     return await service.get_all_quizzes()
 
 
-@generated_quiz_router.get("/generated_quizzes/me",)
+@generated_quiz_router.get("/me",)
 async def get_user_quizzes(
     token: dict = Depends(get_current_user),
     service: QuizGeneratorService = Depends(QuizGeneratorService)
@@ -36,7 +36,7 @@ async def get_user_quizzes(
     return await service.get_quizzes_by_user(user_id)
 
 
-@generated_quiz_router.post("/generated_quizzes/{quiz_id}/start", )
+@generated_quiz_router.post("/{quiz_id}/start", )
 async def start_quiz_attempt(
     quiz_id: PydanticObjectId,
     token: dict = Depends(get_current_user),
@@ -45,7 +45,7 @@ async def start_quiz_attempt(
     user_id = PydanticObjectId(token.get("sub"))
     return await service.start_quiz_attempt( quiz_id,user_id)
 
-@generated_quiz_router.post("/generated_quizzes/{attempt_id}/submit", )
+@generated_quiz_router.post("/{attempt_id}/submit", )
 async def submit_quiz_attempt(
     attempt_id: PydanticObjectId,
     answers: List[UserAnswer],
@@ -53,10 +53,19 @@ async def submit_quiz_attempt(
 ):
     return await service.submit_quiz_attempt(attempt_id, answers)
 
-@generated_quiz_router.get("/generated_quizzes/attempts/me",)
+@generated_quiz_router.get("/attempts/me",)
 async def get_user_attempts(
     token: dict = Depends(get_current_user),
     service: QuizGeneratorService = Depends(QuizGeneratorService)
 ):
     user_id = PydanticObjectId(token.get("sub"))
     return await service.get_user_attempts(user_id)
+
+
+@generated_quiz_router.post("/{attempt_id}/answer", )
+async def answer_question(
+    attempt_id: PydanticObjectId,
+    answer: UserAnswer,
+    service: QuizGeneratorService = Depends(QuizGeneratorService)
+):
+    return await service.answer_question(attempt_id, answer)

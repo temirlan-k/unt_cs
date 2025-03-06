@@ -46,13 +46,18 @@ class QuizService:
         await attempt.insert()
         return attempt
 
-    async def submit_answer(self, attempt_id: PydanticObjectId, answer_data: AnswerCreate, user_id: PydanticObjectId) -> UserAnswer:
+    async def submit_answer(self, attempt_id: PydanticObjectId, answer_data: AnswerCreate, user_id: PydanticObjectId):
         """Сохраняет ответ пользователя на вопрос и проверяет правильность"""
         attempt = await UserQuizAttempt.get(attempt_id)
         if not attempt:
             raise HTTPException(status_code=404, detail='Quiz attempt not found')
-        if str(attempt.user_id) != user_id:
+        if attempt.user_id != user_id:
             raise HTTPException(status_code=403, detail="You can't rewrite someone's quiz attempt")
+        
+        # Проверка, что пользователь не отвечал на этот вопрос ранее
+        existing_answer = await UserAnswer.find_one({"attempt_id": attempt_id, "question_id": answer_data.question_id})
+        if existing_answer:
+            raise HTTPException(status_code=400, detail="You have already answered this question")
         
         question = await Question.get(answer_data.question_id)
         if not question:
@@ -62,7 +67,7 @@ class QuizService:
         
         if question.type == QuestionType.SINGLE_CHOICE:
             correct_option = next((opt for opt in question.options if opt.is_correct), None)
-            score = 1 if correct_option and correct_option.label == answer_data.option_label else 0
+            score = 1 if correct_option and correct_option.label in answer_data.option_labels else 0
         
         elif question.type == QuestionType.MULTIPLE_CHOICE:
             correct_options = {opt.label for opt in question.options if opt.is_correct}
@@ -70,16 +75,16 @@ class QuizService:
             correct_selected = selected_options & correct_options
             
             if len(correct_selected) == len(correct_options):
-                score = 2  # Все правильные выбраны
+                score = 2 
             elif len(correct_selected) > 0:
-                score = 1  # Есть хотя бы один правильный
+                score = 1  
             else:
-                score = 0  # Ничего не угадано
-        
+                score = 0 
+    
         user_answer = UserAnswer(
             attempt_id=attempt_id,
             question_id=answer_data.question_id,
-            selected_option=answer_data.option_label if question.type == QuestionType.SINGLE_CHOICE else answer_data.option_labels,
+            selected_options=answer_data.option_labels,
             score=score,
         )
         await user_answer.insert()
@@ -89,16 +94,22 @@ class QuizService:
     async def submit_quiz_attempt(self, attempt_id: PydanticObjectId, user_id: PydanticObjectId):
         """Завершение квиза с автоматическим расчетом балла"""
         attempt = await UserQuizAttempt.get(attempt_id)
-        user = await User.get(user_id)
         if not attempt:
             raise HTTPException(status_code=404, detail="Quiz Attempt not found")
-        
+        if attempt.user_id != user_id:
+            raise HTTPException(status_code=403, detail="You can't submit someone else's quiz attempt")
+
         user_answers = await UserAnswer.find({"attempt_id": attempt_id}).to_list()
         total_score = sum(answer.score for answer in user_answers)
         attempt.score = total_score
         attempt.ended_at = datetime.utcnow()
         attempt.is_completed = True
-        user.total_score += total_score
+
+        user = await User.get(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user.total_score = (user.total_score or 0) + total_score
         
         await attempt.save()
         await user.save()

@@ -35,8 +35,8 @@ async def start_quiz_attempt(
     """Начать попытку квиза"""
     return await quiz_service.start_quiz_attempt(quiz_id, PydanticObjectId(token.get('sub')))
 
-@quiz_router.post("/attempts/{attempt_id}/submit", )
-async def submit_quiz_attempt(
+@quiz_router.post("/attempts/{attempt_id}/finish", )
+async def finish_quiz_attempt(
     attempt_id: PydanticObjectId, 
     quiz_service: QuizService = Depends(QuizService),
     token: dict = Depends(get_current_user),

@@ -4,11 +4,12 @@ from src.models.generated_quiz import GeneratedQuiz, GeneratedQuestion, Question
 from src.helpers.llm import LLMClient  # Клиент для работы с ИИ
 
 
+
 class QuizGeneratorService:
     def __init__(self, llm_client: LLMClient):
         self.llm_client = llm_client
 
-    async def generate_quiz(self, user_prompt: str) -> GeneratedQuiz:
+    async def generate_quiz(self, user_prompt: str, user_id:PydanticObjectId) -> GeneratedQuiz:
         # Отправка запроса в ИИ
         response = await self.llm_client.generate_quiz(user_prompt)
 

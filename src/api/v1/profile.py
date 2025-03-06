@@ -1,3 +1,4 @@
+from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends
 
 from src.core.auth_middleware import get_current_user
@@ -25,8 +26,16 @@ async def me(
 
 
 @profile_router.get('/leaderboard')
-async def leaderboard(
+async def get_leaderboard(
     skip: int = 0, limit: int = 10,
     profile_service: ProfileService = Depends(ProfileService),
 ):
     return await profile_service.get_leaderboard(skip,limit)
+
+@profile_router.get("/leaderboard/me", )
+async def get_user_rank(    
+    token: dict = Depends(get_current_user),
+    profile_service: ProfileService = Depends(ProfileService),
+):
+    """Возвращает место текущего пользователя в лидерборде и его total_score"""
+    return await profile_service.get_user_rank((token.get('sub')))

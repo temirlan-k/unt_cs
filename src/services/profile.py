@@ -43,9 +43,19 @@ class ProfileService:
         await user.save()
         return user
 
-
-    async def get_leaderboard(skip: int = 0, limit: int = 10):
+    async def get_leaderboard(self, skip: int = 0, limit: int = 10):
         """Возвращает топ пользователей по total_score с поддержкой пагинации"""
         users = await User.find().sort("-total_score").skip(skip).limit(limit).to_list()
-        return users
-        
+        total_users = await User.count()  # Общее количество пользователей
+        return {'users': users, "users_count": total_users}
+
+    async def get_user_rank(self, user_id: str):
+        """Возвращает место текущего пользователя в лидерборде и его total_score"""
+        user = await User.get(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        rank = await User.find(User.total_score > user.total_score).count() + 1
+        total_users = await User.count()
+
+        return {"rank": rank, "total_score": user.total_score, "users_count": total_users}

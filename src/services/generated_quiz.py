@@ -2,6 +2,8 @@ from datetime import datetime
 import json
 from typing import List
 from beanie import PydanticObjectId
+from src.models.user import User
+from src.models.mistake_bank import MistakeBank
 from src.schemas.req.generated_quiz import UserAnswerRequest
 from src.models.generated_quiz import GeneratedQuiz, GeneratedQuestion, QuestionOption, UserAnswer, UserGeneratedQuizAttempt
 from src.helpers.llm import LLMClient
@@ -107,50 +109,31 @@ class QuizGeneratorService:
         await attempt.insert()
         return attempt
     
-
-    async def submit_quiz_attempt(self, attempt_id: PydanticObjectId, answers: List[UserAnswer]):
+    async def submit_quiz_attempt(self, attempt_id: PydanticObjectId):
+        """Завершает попытку квиза, суммирует баллы и обновляет счет пользователя."""
         attempt = await UserGeneratedQuizAttempt.get(attempt_id)
         if not attempt:
-            raise HTTPException(status_code=404, detail='Attempt not found')
+            raise HTTPException(status_code=404, detail="Attempt not found")
 
+        if attempt.finished_at:
+            raise HTTPException(status_code=400, detail="Attempt already finished")
 
-        quiz = await GeneratedQuiz.get(attempt.quiz_id)
-        if not quiz:
-            raise HTTPException(status_code=404, detail='Quiz not found')
+        # Считаем общий балл на основе уже данных ответов
+        total_score = sum(ans.score for ans in attempt.answers)
 
-        total_score = 0
-
-        for answer in answers:
-            question = next((q for q in quiz.questions if q.id == answer.question_id), None)
-            if not question:
-                continue
-
-            correct_options = [opt.label for opt in question.options if opt.is_correct]
-            selected_correct = len(set(answer.selected_options) & set(correct_options))
-            total_correct = len(correct_options)
-
-            if question.type == "single_choice":
-                # Один правильный ответ, 1 балл за правильный выбор
-                answer.score = 1 if selected_correct == 1 else 0
-
-            elif question.type == "multiple_choice":
-                # Если выбрал все правильные — 2 балла, если не все — 1 балл, если ничего или ошибся — 0 баллов
-                if selected_correct == total_correct:
-                    answer.score = 2
-                elif selected_correct > 0:
-                    answer.score = 1
-                else:
-                    answer.score = 0
-
-            total_score += answer.score
-
-        attempt.answers = answers
+        # Фиксируем завершение попытки
         attempt.score = total_score
         attempt.finished_at = datetime.utcnow()
-
         await attempt.save()
-        return attempt
-    
+
+        # Обновляем общий счет пользователя
+        user = await User.get(attempt.user_id)
+        if user:
+            user.total_score += total_score
+            await user.save()
+
+        return {"message": "Quiz attempt submitted", "total_score": total_score}
+
     
     async def answer_question(
         self, 
@@ -200,7 +183,14 @@ class QuizGeneratorService:
             selected_options=answer.selected_options,
             score=score
         )
+        if score == 0:
+            await MistakeBank(
+                user_id=attempt.user_id,
+                question_id=answer.question_id,
+                added_at=datetime.utcnow()
+            ).insert()
 
+    
         if attempt.score is None:
             attempt.score = 0
         attempt.answers.append(user_answer)

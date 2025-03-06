@@ -9,7 +9,7 @@ from src.models.question import Question
 from src.models.quiz_session import UserQuizAttempt
 from src.schemas.req.quiz import QuizCreateDTO, QuestionDTO
 from src.models.enums import QuizSubject, QuestionType
-
+from src.models.mistake_bank import MistakeBank
 
 class QuizService:
     async def create_quiz(self, quiz_data: QuizCreateDTO):
@@ -142,9 +142,55 @@ class QuizService:
         ]
 
 
-    async def get_user_quiz_attempts(self,user_id:PydanticObjectId):
+    async def get_user_quiz_attempts(self,user_id: PydanticObjectId):
+        """Возвращает список попыток пользователя с полной информацией о квизах и вопросах."""
         attempts = await UserQuizAttempt.find({"user_id": user_id}).to_list()
-        return attempts
+        if not attempts:
+            raise HTTPException(status_code=404, detail="No attempts found")
+        
+        # Собираем все quiz_id и question_id
+        quiz_ids = {attempt.quiz_id for attempt in attempts}
+        attempt_ids = {attempt.id for attempt in attempts}
+        user_answers = await UserAnswer.find({"attempt_id": {"$in": list(attempt_ids)}}).to_list()
+        question_ids = {answer.question_id for answer in user_answers}
+        
+        # Загружаем все квизы и вопросы
+        quizzes = await Quiz.find({"_id": {"$in": list(quiz_ids)}}).to_list()
+        questions = await Question.find({"_id": {"$in": list(question_ids)}}).to_list()
+        
+        quiz_map = {quiz.id: quiz for quiz in quizzes}
+        question_map = {question.id: question for question in questions}
+        
+        response = []
+        for attempt in attempts:
+            quiz = quiz_map.get(attempt.quiz_id)
+            if not quiz:
+                continue
+            
+            attempt_data = attempt.dict()
+            attempt_data["quiz_title"] = quiz.title
+            attempt_data["quiz_variant"] = quiz.variant
+            attempt_data["quiz_year"] = quiz.year
+            
+            # Добавляем детали ответов
+            attempt_data["answers"] = []
+            for answer in user_answers:
+                if answer.attempt_id == attempt.id:
+                    question = question_map.get(answer.question_id)
+                    if question:
+                        attempt_data["answers"].append({
+                            "question_text": question.question_text,
+                            "selected_options": answer.selected_options,
+                            "options": [{
+                                "label": opt.label,
+                                "text": opt.option_text,
+                                "is_correct": opt.is_correct
+                            } for opt in question.options]
+                        })
+            
+            response.append(attempt_data)
+        
+        return response
 
 
     async def get_detailed_answers(attempt_id: PydanticObjectId,user_id:PydanticObjectId):

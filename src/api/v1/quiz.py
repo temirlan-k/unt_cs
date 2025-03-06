@@ -66,13 +66,13 @@ async def get_quiz_questions(
 
 
 
-@quiz_router.get("/attempts", )
+@quiz_router.get("/attempts/me", )
 async def get_user_quiz_attempts(
     quiz_service: QuizService = Depends(QuizService),
     token: dict = Depends(get_current_user),
 ):
     """Получить список историю попыток куизов"""
-    return await quiz_service.get_user_quiz_attempts(token.get('sub'))
+    return await quiz_service.get_user_quiz_attempts(PydanticObjectId(token.get('sub')))
 
 
 

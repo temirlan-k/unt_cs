@@ -83,4 +83,4 @@ async def get_detailed_answers(
     token: dict = Depends(get_current_user),
 ):
     """Получить детальные ответы на вопросы по попытке юзера"""
-    return await quiz_service.get_detailed_answers(attempt_id,token.get('sub'))
+    return await quiz_service.get_detailed_answers(attempt_id,PydanticObjectId(token.get('sub')))

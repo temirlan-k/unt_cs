@@ -203,7 +203,7 @@ class QuizService:
 
 
 
-    async def get_detailed_answers(attempt_id: PydanticObjectId,user_id:PydanticObjectId):
+    async def get_detailed_answers(self,attempt_id: PydanticObjectId,user_id:PydanticObjectId):
         attempt = await UserQuizAttempt.get(attempt_id)
         if not attempt:
             raise HTTPException(status_code=404, detail="Quiz attempt not found")

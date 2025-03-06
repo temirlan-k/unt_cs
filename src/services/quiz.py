@@ -1,15 +1,14 @@
 from beanie import PydanticObjectId
 from fastapi import HTTPException
+from datetime import datetime
 from src.schemas.res.question import OptionResponse, QuestionResponse
 from src.models.user_answer import AnswerCreate, UserAnswer
 from src.models.user import User
 from src.models.quiz import Quiz, QuizStructure
 from src.models.question import Question
 from src.models.quiz_session import UserQuizAttempt
-from src.schemas.req.quiz import QuizCreateDTO
-from src.schemas.req.quiz import QuestionDTO
-from src.models.enums import QuizSubject
-from datetime import datetime
+from src.schemas.req.quiz import QuizCreateDTO, QuestionDTO
+from src.models.enums import QuizSubject, QuestionType
 
 
 class QuizService:
@@ -43,69 +42,74 @@ class QuizService:
 
     async def start_quiz_attempt(self, quiz_id: PydanticObjectId, user_id: PydanticObjectId):
         """Начало попытки квиза"""
-        attempt = UserQuizAttempt(user_id=user_id, quiz_id=quiz_id,score=0)
+        attempt = UserQuizAttempt(user_id=user_id, quiz_id=quiz_id, score=0)
         await attempt.insert()
         return attempt
 
-    async def submit_quiz_attempt(self, attempt_id: PydanticObjectId,user_id:PydanticObjectId):
-        """Завершение квиза с автоматическим расчетом балла"""
-        attempt = await UserQuizAttempt.get(attempt_id)
-        user = await User.get(user_id)
-        if not attempt:
-            raise HTTPException(status_code=404, detail="Quiz Attempt not found")
-
-        questions = await Question.find({"quiz_id": attempt.quiz_id}).to_list()
-
-        if not questions:
-            raise HTTPException(status_code=400, detail="Questions not found")
-
-        correct_answers = sum(
-            1 for question in questions if any(option.is_correct for option in question.options)
-        )
-        total_questions = len(questions)
-
-        score = round((correct_answers / total_questions) * 100, 2)
-
-        attempt.score = score
-        attempt.ended_at = datetime.utcnow()
-        attempt.is_completed = True
-        user.total_score += score
-        await attempt.save()
-        await user.save()
-
-        return {
-            "attempt_id": str(attempt.id),
-            "quiz_id": str(attempt.quiz_id),
-            "total_questions": total_questions,
-            "correct_answers": correct_answers,
-            "score": score
-        }
-    
     async def submit_answer(self, attempt_id: PydanticObjectId, answer_data: AnswerCreate, user_id: PydanticObjectId) -> UserAnswer:
         """Сохраняет ответ пользователя на вопрос и проверяет правильность"""
         attempt = await UserQuizAttempt.get(attempt_id)
         if not attempt:
-            raise HTTPException(status_code=404,detail='Quiz attempt not found')
+            raise HTTPException(status_code=404, detail='Quiz attempt not found')
         if str(attempt.user_id) != user_id:
-            raise HTTPException(status_code=403,detail="You cant rewrite someones quiz attempt")
+            raise HTTPException(status_code=403, detail="You can't rewrite someone's quiz attempt")
+        
         question = await Question.get(answer_data.question_id)
         if not question:
-            raise HTTPException(status_code=404,detail='Question not found')
-
-        correct_option = next((opt for opt in question.options if opt.is_correct), None)
-        is_correct = correct_option.label == answer_data.option_label if correct_option else False
-
+            raise HTTPException(status_code=404, detail='Question not found')
+        
+        score = 0
+        
+        if question.type == QuestionType.SINGLE_CHOICE:
+            correct_option = next((opt for opt in question.options if opt.is_correct), None)
+            score = 1 if correct_option and correct_option.label == answer_data.option_label else 0
+        
+        elif question.type == QuestionType.MULTIPLE_CHOICE:
+            correct_options = {opt.label for opt in question.options if opt.is_correct}
+            selected_options = set(answer_data.option_labels)
+            correct_selected = selected_options & correct_options
+            
+            if len(correct_selected) == len(correct_options):
+                score = 2  # Все правильные выбраны
+            elif len(correct_selected) > 0:
+                score = 1  # Есть хотя бы один правильный
+            else:
+                score = 0  # Ничего не угадано
+        
         user_answer = UserAnswer(
             attempt_id=attempt_id,
             question_id=answer_data.question_id,
-            selected_option=answer_data.option_label,
-            is_correct=is_correct,
+            selected_option=answer_data.option_label if question.type == QuestionType.SINGLE_CHOICE else answer_data.option_labels,
+            score=score,
         )
         await user_answer.insert()
 
         return user_answer
     
-    async def get_quiz_questions(self, quiz_id: PydanticObjectId,subject: QuizSubject):
+    async def submit_quiz_attempt(self, attempt_id: PydanticObjectId, user_id: PydanticObjectId):
+        """Завершение квиза с автоматическим расчетом балла"""
+        attempt = await UserQuizAttempt.get(attempt_id)
+        user = await User.get(user_id)
+        if not attempt:
+            raise HTTPException(status_code=404, detail="Quiz Attempt not found")
+        
+        user_answers = await UserAnswer.find({"attempt_id": attempt_id}).to_list()
+        total_score = sum(answer.score for answer in user_answers)
+        attempt.score = total_score
+        attempt.ended_at = datetime.utcnow()
+        attempt.is_completed = True
+        user.total_score += total_score
+        
+        await attempt.save()
+        await user.save()
+        
+        return {
+            "attempt_id": str(attempt.id),
+            "quiz_id": str(attempt.quiz_id),
+            "total_score": total_score,
+        }
+    
+    async def get_quiz_questions(self, quiz_id: PydanticObjectId, subject: QuizSubject):
         """Получить список вопросов для квиза"""
         questions = await Question.find(
             {"quiz_id": quiz_id, "subject": subject.value}  
@@ -113,8 +117,8 @@ class QuizService:
         
         return [
             QuestionResponse(
-                id=(q.id),
-                quiz_id=q.quiz_id,
+                id=str(q.id),
+                quiz_id=str(q.quiz_id),
                 type=q.type,
                 subject=q.subject,
                 question_text=q.question_text,

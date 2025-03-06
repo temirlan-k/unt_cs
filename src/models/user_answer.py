@@ -1,6 +1,8 @@
 from typing import List
 from beanie import Document, PydanticObjectId
 from pydantic import BaseModel
+
+
 class AnswerCreate(BaseModel):
     """Модель для отправки ответа на вопрос (с поддержкой нескольких вариантов)"""
     question_id: PydanticObjectId
@@ -12,7 +14,7 @@ class UserAnswer(Document):
     attempt_id: PydanticObjectId  # ID попытки
     question_id: PydanticObjectId  # ID вопроса
     selected_options: List[str]  # Выбранные варианты (["A", "C"])
-    is_correct: bool  # Был ли ответ полностью правильным
+    score: float
 
     class Settings:
         collection = "user_answers"

@@ -1,5 +1,6 @@
+from datetime import datetime
 from enum import Enum
-from typing import List
+from typing import List, Optional
 from beanie import Document, PydanticObjectId
 from pydantic import BaseModel
 
@@ -25,3 +26,20 @@ class GeneratedQuiz(Document):
 
     class Settings:
         collection = "generated_quizzes"
+
+class UserAnswer(BaseModel):
+    question_id: PydanticObjectId
+    selected_options: List[str]
+    score: int 
+
+
+class UserGeneratedQuizAttempt(Document):
+    user_id: PydanticObjectId
+    quiz_id: PydanticObjectId
+    answers: List[UserAnswer] = []
+    score: Optional[int] = None
+    started_at: datetime
+    finished_at: Optional[datetime] = None
+
+    class Settings:
+        collection = "user_generated_quiz_attempts"

@@ -1,7 +1,7 @@
 import os
 from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
-from src.models.generated_quiz import GeneratedQuiz
+from src.models.generated_quiz import GeneratedQuiz, UserGeneratedQuizAttempt
 from src.models.user import User
 from src.models.question import *
 from src.models.quiz import *
@@ -24,6 +24,7 @@ async def init_db():
             Quiz,
             UserAnswer,
             UserQuizAttempt,
-            GeneratedQuiz
+            GeneratedQuiz,
+            UserGeneratedQuizAttempt
         ],
     )

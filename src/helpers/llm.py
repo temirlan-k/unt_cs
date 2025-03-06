@@ -74,17 +74,17 @@ class LLMClient:
             api_key=os.getenv("OPENROUTER_API_KEY"),
             base_url=os.getenv("OPENROUTER_BASE_URL")
         )
-        print(os.getenv("OPENROUTER_API_KEY"), os.getenv("OPENROUTER_BASE_URL"))
             
-    async def generate_response(self, data: dict, system_prompt: str):
+    async def generate_response(self,user_prompt: str):
         try:
-            messages = [{"role": "system", "content": system_prompt}]
-            messages.extend(data.get('messages'))
+            messages = [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": user_prompt}
+            ]            
             response = await self.openai.chat.completions.create(
-                model='gpt-4o-mini-2024-07-18',
+                model='openai/gpt-4o-mini-2024-07-18',
                 messages=messages
             )
-
             llm_response = response.choices[0].message.content
             if isinstance(llm_response, bytes):
                 llm_response = llm_response.decode('utf-8')

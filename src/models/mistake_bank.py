@@ -5,7 +5,7 @@ from typing import List
 from beanie import PydanticObjectId
 
 
-class MistakeBank(Document):
+class MistakeBankQuiz(Document):
     user_id: PydanticObjectId
     question_id: PydanticObjectId
     quiz_id: PydanticObjectId

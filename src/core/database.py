@@ -1,6 +1,7 @@
 import os
 from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
+from src.models.mistake_bank import MistakeBankQuiz
 from src.models.generated_quiz import GeneratedQuiz, UserGeneratedQuizAttempt
 from src.models.user import User
 from src.models.question import *
@@ -25,6 +26,7 @@ async def init_db():
             UserAnswer,
             UserQuizAttempt,
             GeneratedQuiz,
-            UserGeneratedQuizAttempt
+            UserGeneratedQuizAttempt,
+            MistakeBankQuiz
         ],
     )

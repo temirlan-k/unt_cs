@@ -2,8 +2,9 @@ from datetime import datetime
 import json
 from typing import List
 from beanie import PydanticObjectId
+from src.models.question import Question
 from src.models.user import User
-from src.models.mistake_bank import MistakeBank
+from src.models.mistake_bank import MistakeBankQuiz
 from src.schemas.req.generated_quiz import UserAnswerRequest
 from src.models.generated_quiz import GeneratedQuiz, GeneratedQuestion, QuestionOption, UserAnswer, UserGeneratedQuizAttempt
 from src.helpers.llm import LLMClient
@@ -183,12 +184,18 @@ class QuizGeneratorService:
             selected_options=answer.selected_options,
             score=score
         )
+        print(user_answer.question_id)
         if score == 0:
-            await MistakeBank(
+            mistake = MistakeBankQuiz(
                 user_id=attempt.user_id,
                 question_id=answer.question_id,
-                added_at=datetime.utcnow()
-            ).insert()
+                added_at=datetime.utcnow(),
+                quiz_id=quiz.id,  
+                question_text=question.question_text, 
+                options=[{"label": opt.label,"option_text":opt.option_text,'is_correct':opt.is_correct} for opt in question.options]   # Add options here
+            )
+            await mistake.insert()
+
 
     
         if attempt.score is None:

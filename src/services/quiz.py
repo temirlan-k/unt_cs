@@ -9,7 +9,7 @@ from src.models.question import Question
 from src.models.quiz_session import UserQuizAttempt
 from src.schemas.req.quiz import QuizCreateDTO, QuestionDTO
 from src.models.enums import QuizSubject, QuestionType
-from src.models.mistake_bank import MistakeBank
+from src.models.mistake_bank import MistakeBankQuiz
 from fastapi.encoders import jsonable_encoder
 
 class QuizService:

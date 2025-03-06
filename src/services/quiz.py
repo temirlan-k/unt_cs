@@ -262,7 +262,7 @@ class QuizService:
                         }
                         for opt in question.options
                     ],
-                    "selected_option": ua.selected_option  # Добавляем выбор пользователя
+                    "selected_option": ua.selected_options  # Добавляем выбор пользователя
                 })
 
         return response

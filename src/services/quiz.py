@@ -10,6 +10,7 @@ from src.models.quiz_session import UserQuizAttempt
 from src.schemas.req.quiz import QuizCreateDTO, QuestionDTO
 from src.models.enums import QuizSubject, QuestionType
 from src.models.mistake_bank import MistakeBank
+from fastapi.encoders import jsonable_encoder
 
 class QuizService:
     async def create_quiz(self, quiz_data: QuizCreateDTO):
@@ -142,7 +143,7 @@ class QuizService:
         ]
 
 
-    async def get_user_quiz_attempts(self,user_id: PydanticObjectId):
+    async def get_user_quiz_attempts(self, user_id: PydanticObjectId):
         """Возвращает список попыток пользователя с полной информацией о квизах и вопросах."""
         attempts = await UserQuizAttempt.find({"user_id": user_id}).to_list()
         if not attempts:
@@ -165,13 +166,18 @@ class QuizService:
         for attempt in attempts:
             quiz = quiz_map.get(attempt.quiz_id)
             if not quiz:
-                continue
+                continue  # Пропускаем, если квиз не найден
             
-            attempt_data = attempt.dict()
+            # Преобразуем ObjectId в строку
+            attempt_data = jsonable_encoder(attempt)
+            attempt_data["id"] = str(attempt.id)
+            attempt_data["quiz_id"] = str(attempt.quiz_id)
+            attempt_data["user_id"] = str(attempt.user_id)
+
             attempt_data["quiz_title"] = quiz.title
             attempt_data["quiz_variant"] = quiz.variant
             attempt_data["quiz_year"] = quiz.year
-            
+
             # Добавляем детали ответов
             attempt_data["answers"] = []
             for answer in user_answers:
@@ -181,16 +187,20 @@ class QuizService:
                         attempt_data["answers"].append({
                             "question_text": question.question_text,
                             "selected_options": answer.selected_options,
-                            "options": [{
-                                "label": opt.label,
-                                "text": opt.option_text,
-                                "is_correct": opt.is_correct
-                            } for opt in question.options]
+                            "options": [
+                                {
+                                    "label": opt.label,
+                                    "text": opt.option_text,
+                                    "is_correct": opt.is_correct
+                                }
+                                for opt in question.options
+                            ]
                         })
-            
+
             response.append(attempt_data)
         
         return response
+
 
 
     async def get_detailed_answers(attempt_id: PydanticObjectId,user_id:PydanticObjectId):

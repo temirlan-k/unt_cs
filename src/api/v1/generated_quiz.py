@@ -48,10 +48,9 @@ async def start_quiz_attempt(
 @generated_quiz_router.post("/{attempt_id}/submit", )
 async def submit_quiz_attempt(
     attempt_id: PydanticObjectId,
-    answers: List[UserAnswer],
     service: QuizGeneratorService = Depends(QuizGeneratorService)
 ):
-    return await service.submit_quiz_attempt(attempt_id, answers)
+    return await service.submit_quiz_attempt(attempt_id)
 
 @generated_quiz_router.get("/attempts/me",)
 async def get_user_attempts(

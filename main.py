@@ -22,9 +22,9 @@ def make_app():
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    # app.include_router(
-    #     api_router,
-    # )
+    app.include_router(
+        api_router,
+    )
     return app
 
 

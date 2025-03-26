@@ -11,58 +11,87 @@ from src.models.question import Question
 from src.models.quiz_session import UserQuizAttempt
 from src.schemas.req.quiz import QuizCreateDTO, QuestionDTO
 from src.models.enums import QuizSubject, QuestionType
-from src.models.mistake_bank import MistakeBankQuiz
+from src.models.mistake_bank import MistakeBankQuiz,MistakeQuizSession
 from fastapi.encoders import jsonable_encoder
 
 
 class MistakeBankQuizService:
 
-    async def start_mistake_bank_quiz(self, user_id: PydanticObjectId):
-        """Запускает MistakeBank квиз для пользователя (возвращает все вопросы с ошибками)."""
+    async def start_mistake_quiz_session(self, user_id: PydanticObjectId):
+        """Создает новую сессию MistakeBank-квиза."""
+        active_session = await MistakeQuizSession.find_one({"user_id": user_id, "status": "in_progress"})
+        if active_session:
+            raise HTTPException(status_code=400, detail="You already have an active mistake quiz session.")
+
         mistakes = await MistakeBankQuiz.find(MistakeBankQuiz.user_id == user_id).to_list()
         if not mistakes:
             raise HTTPException(status_code=404, detail="No mistakes found")
 
-        # Формируем список вопросов
-        questions = [
-            {
-                "question_id": str(mistake.question_id),
-                "question_text": mistake.question_text,
-                "options": mistake.options
-            }
-            for mistake in mistakes
-        ]
-        return {"questions": questions}
+        session = MistakeQuizSession(user_id=user_id, mistakes=[])
+        await session.insert()
+        
+        questions = [{
+            "question_id": str(m.question_id),
+            "question_text": m.question_text,
+            "options": m.options
+        } for m in mistakes]
+        
+        return {"session_id": str(session.id), "questions": questions}
+    
+    async def answer_mistake_question(self, user_id: PydanticObjectId, session_id: PydanticObjectId, answer: UserAnswerRequest):
+        """Обрабатывает ответ пользователя в сессии MistakeBank-квиза."""
+        session = await MistakeQuizSession.get(session_id)
+        if not session or session.user_id != user_id:
+            raise HTTPException(status_code=404, detail="Mistake quiz session not found")
 
-    async def answer_question_for_mistake_bank_quiz(
-        self, 
-        user_id: PydanticObjectId, 
-        answer: UserAnswerRequest
-    ):
-        """Ответ на вопрос MistakeBank квиза (без начисления баллов), если ответ правильный, удаляется из MistakeBank."""
-        # Находим вопрос в MistakeBank для этого пользователя
         mistake = await MistakeBankQuiz.find_one(
             MistakeBankQuiz.user_id == user_id, MistakeBankQuiz.question_id == answer.question_id
         )
         if not mistake:
             raise HTTPException(status_code=404, detail="Mistake question not found")
-
-        question = mistake
-        if not question:
-            question = mistake
-
-        if not question:
-            raise HTTPException(status_code=404, detail="Quiz not found")
-
-        # Получаем правильные ответы из вопроса
-        correct_options = {opt['label'] for opt in question.options if opt['is_correct']}
+        
+        correct_options = {opt['label'] for opt in mistake.options if opt['is_correct']}
         selected_options = set(answer.selected_options)
-
-        # Проверяем правильность ответа
-        selected_correct = len(selected_options & correct_options)
-
-        # Если ответ правильный, удаляем вопрос из MistakeBank
-        if selected_correct == len(correct_options):
+        is_correct = selected_options == correct_options
+        question = await MistakeBankQuiz.find_one(MistakeBankQuiz.question_id == answer.question_id)
+        session.mistakes.append({
+            "question_id": str(answer.question_id),
+            "question_text":question.question_text,
+            "options":question.options,
+            "selected_options": answer.selected_options,
+            "is_correct": is_correct
+        })
+        await session.save()
+        
+        if is_correct:
             await mistake.delete()
+                
+        return {"message": "Answer submitted", "correct": is_correct}
+    
+    async def complete_mistake_quiz_session(self, user_id: PydanticObjectId, session_id: PydanticObjectId):
+        """Завершает MistakeBank-квиз сессию и удаляет правильно отвеченные вопросы."""
+        session = await MistakeQuizSession.get(session_id)
+        if not session or session.user_id != user_id:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        session.status = "completed"
+        session.completed_at = datetime.utcnow()
+        await session.save()
+        
+        # Удаляем все вопросы из MistakeBankQuiz, на которые ответили правильно
+        for mistake in session.mistakes:
+            if mistake["is_correct"]:
+                await MistakeBankQuiz.find_one(MistakeBankQuiz.user_id == user_id, MistakeBankQuiz.question_id == mistake["question_id"]).delete()
+        
+        return {"message": "Mistake quiz session completed", "session_results": session.mistakes}
 
-        return {"message": "Answer submitted", "correct": selected_correct == len(correct_options)}
+    async def get_mistake_quiz_session_results(self, user_id, session_id, ):
+        session = await MistakeQuizSession.get(session_id)
+        if not session or session.user_id != (user_id):
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        return {"session_id": str(session.id), "mistakes": session.mistakes}
+    
+    async def get_all_mistake_quiz_sessions(self, user_id):
+        sessions = await MistakeQuizSession.find(MistakeQuizSession.user_id == user_id).to_list()
+        return sessions

@@ -167,6 +167,11 @@ class QuizService:
             quiz = quiz_map.get(attempt.quiz_id)
             if not quiz:
                 continue
+            max_score = sum(
+                sum(1 for option in question_map[answer.question_id].options if option.is_correct)
+                for answer in user_answers if answer.attempt_id == attempt.id
+            )            
+
 
             attempt_data = jsonable_encoder(attempt)
             attempt_data["id"] = str(attempt.id)
@@ -176,13 +181,9 @@ class QuizService:
             attempt_data["quiz_title"] = quiz.title
             attempt_data["quiz_variant"] = quiz.variant
             attempt_data["quiz_year"] = quiz.year
+            attempt_data["max_score"] = max_score
 
             # Подсчет max_score — сумма всех is_correct во всех вопросах квиза
-            max_score = sum(
-                sum(1 for option in question_map[answer.question_id].options if option.is_correct)
-                for answer in user_answers if answer.attempt_id == attempt.id
-            )            
-            print("max_score",max_score)
 
 
             attempt_data["answers"] = []
@@ -212,7 +213,6 @@ class QuizService:
                         })
 
             # attempt_data["score"] = user_score
-            attempt_data["max_score"] = max_score
 
             response.append(attempt_data)
 

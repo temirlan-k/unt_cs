@@ -72,25 +72,27 @@ class QuizGeneratorService:
             if not quiz:
                 continue  # Пропускаем, если quiz_id не найден
 
+            max_score = sum(2 if question.type == "multiple_choice" else 1 for question in quiz.questions)
+            print(max_score,"max_score")
             attempt_data = jsonable_encoder(attempt)
             attempt_data["id"] = str(attempt.id)
             attempt_data["user_id"] = str(attempt.user_id)
             attempt_data["quiz_id"] = str(attempt.quiz_id)
             attempt_data["quiz_title"] = quiz.title
             attempt_data["quiz_subject"] = quiz.subject
-            total_score = sum(answer["score"] for answer in attempt_data["answers"])
-            max_score = len(attempt_data["answers"])  # Макс. балл = кол-во вопросов в попытке
+            attempt_data["max_score"] = max_score  # Добавляем в респонс
+
             # Добавляем полные данные о вопросах
             for answer in attempt_data["answers"]:
                 question = questions_map.get(ObjectId(answer["question_id"]))
                 if question:
                     answer["question_id"] = str(answer["question_id"])
                     answer["question_text"] = question.question_text
+                    answer["question_type"] = question.type
                     answer["options"] = [
                         {"label": option.label, "text": option.option_text, "is_correct": option.is_correct}
                         for option in question.options
                     ]
-            attempt_data["max_score"] = max_score
             
             response.append(attempt_data)
 

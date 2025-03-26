@@ -141,34 +141,33 @@ class QuizService:
             )
             for q in questions
         ]
-
+    
 
     async def get_user_quiz_attempts(self, user_id: PydanticObjectId):
         """Возвращает список попыток пользователя с полной информацией о квизах и вопросах."""
         attempts = await UserQuizAttempt.find({"user_id": user_id}).to_list()
         if not attempts:
             raise HTTPException(status_code=404, detail="No attempts found")
-        
-        # Собираем все quiz_id и question_id
+
+        # Собираем quiz_id и question_id
         quiz_ids = {attempt.quiz_id for attempt in attempts}
         attempt_ids = {attempt.id for attempt in attempts}
         user_answers = await UserAnswer.find({"attempt_id": {"$in": list(attempt_ids)}}).to_list()
         question_ids = {answer.question_id for answer in user_answers}
-        
-        # Загружаем все квизы и вопросы
+
+        # Загружаем квизы и вопросы
         quizzes = await Quiz.find({"_id": {"$in": list(quiz_ids)}}).to_list()
         questions = await Question.find({"_id": {"$in": list(question_ids)}}).to_list()
-        
+
         quiz_map = {quiz.id: quiz for quiz in quizzes}
         question_map = {question.id: question for question in questions}
-        
+
         response = []
         for attempt in attempts:
             quiz = quiz_map.get(attempt.quiz_id)
             if not quiz:
-                continue  # Пропускаем, если квиз не найден
-            
-            # Преобразуем ObjectId в строку
+                continue
+
             attempt_data = jsonable_encoder(attempt)
             attempt_data["id"] = str(attempt.id)
             attempt_data["quiz_id"] = str(attempt.quiz_id)
@@ -178,17 +177,29 @@ class QuizService:
             attempt_data["quiz_variant"] = quiz.variant
             attempt_data["quiz_year"] = quiz.year
 
-            total_score = sum(answer["score"] for answer in attempt_data["answers"])
-            max_score = len(attempt_data["answers"])  # Макс. балл = кол-во вопросов в попытке
+            # Подсчет max_score — сумма всех is_correct во всех вопросах квиза
+            max_score = sum(
+                sum(1 for option in question_map[answer.question_id].options if option.is_correct)
+                for answer in user_answers if answer.attempt_id == attempt.id
+            )            
+            print("max_score",max_score)
 
-            # Добавляем детали ответов
+
             attempt_data["answers"] = []
+            user_score = 0  # Баллы пользователя за попытку
+
             for answer in user_answers:
                 if answer.attempt_id == attempt.id:
                     question = question_map.get(answer.question_id)
                     if question:
+                        correct_options = {opt.label for opt in question.options if opt.is_correct}
+                        user_selected = set(answer.selected_options)
+
+                        user_score += len(correct_options & user_selected)  # Считаем только правильные совпадения
+
                         attempt_data["answers"].append({
                             "question_text": question.question_text,
+                            "question_type": question.type,
                             "selected_options": answer.selected_options,
                             "options": [
                                 {
@@ -199,9 +210,12 @@ class QuizService:
                                 for opt in question.options
                             ]
                         })
+
+            # attempt_data["score"] = user_score
             attempt_data["max_score"] = max_score
+
             response.append(attempt_data)
-        
+
         return response
 
 

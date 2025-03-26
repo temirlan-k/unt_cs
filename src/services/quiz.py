@@ -178,6 +178,9 @@ class QuizService:
             attempt_data["quiz_variant"] = quiz.variant
             attempt_data["quiz_year"] = quiz.year
 
+            total_score = sum(answer["score"] for answer in attempt_data["answers"])
+            max_score = len(attempt_data["answers"])  # Макс. балл = кол-во вопросов в попытке
+
             # Добавляем детали ответов
             attempt_data["answers"] = []
             for answer in user_answers:
@@ -196,7 +199,7 @@ class QuizService:
                                 for opt in question.options
                             ]
                         })
-
+            attempt_data["max_score"] = max_score
             response.append(attempt_data)
         
         return response

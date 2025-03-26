@@ -31,7 +31,7 @@ class GeneratedQuiz(Document):
 class UserAnswer(BaseModel):
     question_id: PydanticObjectId
     selected_options: List[str]
-    score: int  = 0
+    score: int = 0
 
 class UserGeneratedQuizAttempt(Document):
     user_id: PydanticObjectId

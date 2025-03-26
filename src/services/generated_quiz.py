@@ -78,7 +78,8 @@ class QuizGeneratorService:
             attempt_data["quiz_id"] = str(attempt.quiz_id)
             attempt_data["quiz_title"] = quiz.title
             attempt_data["quiz_subject"] = quiz.subject
-
+            total_score = sum(answer["score"] for answer in attempt_data["answers"])
+            max_score = len(attempt_data["answers"])  # Макс. балл = кол-во вопросов в попытке
             # Добавляем полные данные о вопросах
             for answer in attempt_data["answers"]:
                 question = questions_map.get(ObjectId(answer["question_id"]))
@@ -89,7 +90,9 @@ class QuizGeneratorService:
                         {"label": option.label, "text": option.option_text, "is_correct": option.is_correct}
                         for option in question.options
                     ]
-
+            attempt_data["total_score"] = total_score
+            attempt_data["max_score"] = max_score
+            
             response.append(attempt_data)
 
         return response

@@ -90,7 +90,6 @@ class QuizGeneratorService:
                         {"label": option.label, "text": option.option_text, "is_correct": option.is_correct}
                         for option in question.options
                     ]
-            attempt_data["total_score"] = total_score
             attempt_data["max_score"] = max_score
             
             response.append(attempt_data)

@@ -15,6 +15,7 @@ class User(Document):
     email: str
     password: str
     total_score: int = 0
-
+    profile_photo: Optional[str] = None  # Храним путь к файлу
+    
     class Settings:
         collection = "users"

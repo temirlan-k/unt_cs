@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from src.api.v1 import api_router
 from src.core.database import init_db
@@ -29,6 +31,12 @@ def make_app():
 
 
 app = make_app()
+
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)  # Создаём папку для загрузки, если её нет
+
+# Подключаем папку uploads как статические файлы
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 if __name__ == "__main__":

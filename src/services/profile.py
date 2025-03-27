@@ -1,7 +1,10 @@
+import os
+import shutil
 from beanie import Link, PydanticObjectId
 from bson import ObjectId
-from fastapi import HTTPException
+from fastapi import File, HTTPException, UploadFile
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import FileResponse
 
 from src.helpers.jwt_handler import JWT
 from src.helpers.password import PasswordHandler
@@ -59,3 +62,44 @@ class ProfileService:
         total_users = await User.count()
 
         return {"rank": rank, "total_score": user.total_score, "users_count": total_users}
+
+    async def update_profile_photo(self, user_id: str, file: UploadFile):
+        """Обновляет фото пользователя, удаляя старое"""
+        user = await User.get(user_id)
+        UPLOAD_DIR = "uploads"
+
+        if not user:
+            return {"error": "User not found"}
+
+        # Удаляем старый файл, если он есть
+        if user.profile_photo:
+            old_file_path = os.path.abspath(user.profile_photo)
+            if os.path.exists(old_file_path):
+                os.remove(old_file_path)  # Удаление старого файла
+
+        # Определяем новое имя файла с оригинальным расширением
+        file_extension = file.filename.split(".")[-1]  # Например, "jpg" или "png"
+        new_file_name = f"{user_id}.{file_extension}"
+        new_file_path = os.path.join(UPLOAD_DIR, new_file_name)
+
+        # Сохраняем новый файл
+        with open(new_file_path, "wb") as buffer:
+            buffer.write(await file.read())
+
+        # Обновляем запись в базе
+        user.profile_photo = new_file_path
+        await user.save()
+
+        return {"message": "Profile photo updated successfully", "photo_url": new_file_path}    
+
+    async def get_profile_photo(self, user_id: str):
+        user = await User.get(user_id)
+        if not user or not user.profile_photo:
+            return {"error": "Photo not found"}
+        UPLOAD_DIR = "uploads"
+        # Проверяем, является ли путь абсолютным
+        file_path = user.profile_photo
+        if file_path is None:
+            raise HTTPException(status_code=404,detail='You dont have profile photo')
+
+        return FileResponse(file_path)

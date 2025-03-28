@@ -95,3 +95,16 @@ class MistakeBankQuizService:
     async def get_all_mistake_quiz_sessions(self, user_id):
         sessions = await MistakeQuizSession.find(MistakeQuizSession.user_id == user_id).to_list()
         return sessions
+    
+    async def get_all_questions_from_mistake(self,user_id:PydanticObjectId):
+        mistakes = await MistakeBankQuiz.find(MistakeBankQuiz.user_id == user_id).to_list()
+        if not mistakes:
+            raise HTTPException(status_code=404, detail="No mistakes found")
+
+        questions = [{
+            "question_id": str(m.question_id),
+            "question_text": m.question_text,
+            "options": m.options
+        } for m in mistakes]
+        
+        return questions

@@ -64,16 +64,16 @@ async def get_all_mistake_quiz_sessions(
     return await mistake_bank_quiz_service.get_all_mistake_quiz_sessions(PydanticObjectId(token.get('sub')))
 
 
-# Ручка для получения всех вопросов из MistakeBank
-# @mistake_bank_router.get("/get_mistake_bank/", )
-# async def get_mistake_bank(    
-#     token: dict = Depends(get_current_user),
-#     mistake_bank_quiz_service: MistakeBankQuizService = Depends(MistakeBankQuizService)
-# ):
-#     """
-#     Возвращает все вопросы, которые пользователь ошибся в прошлом.
-#     """
-#     return await mistake_bank_quiz_service.get_mistake_bank(PydanticObjectId(token.get('sub')))
+#Ручка для получения всех вопросов из MistakeBank
+@mistake_bank_router.get("/get_all_questions_from_mistake/", )
+async def get_all_questions_from_mistake(    
+    token: dict = Depends(get_current_user),
+    mistake_bank_quiz_service: MistakeBankQuizService = Depends(MistakeBankQuizService)
+):
+    """
+    Возвращает все вопросы, которые пользователь ошибся в прошлом.
+    """
+    return await mistake_bank_quiz_service.get_all_questions_from_mistake(PydanticObjectId(token.get('sub')))
 
 # Ручка для проверки, пуст ли MistakeBank
 # @mistake_bank_router.get("/check_if_mistake_bank_is_empty/", response_model=dict)

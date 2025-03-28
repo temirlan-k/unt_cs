@@ -20,7 +20,6 @@ async def init_db():
     await init_beanie(
         database=db,
         document_models=[
-            MistakeQuizSession,
             User,
             Question,
             Quiz,
@@ -29,5 +28,6 @@ async def init_db():
             GeneratedQuiz,
             UserGeneratedQuizAttempt,
             MistakeBankQuiz,
+            MistakeQuizSession,
         ],
     )

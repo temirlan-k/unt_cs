@@ -102,8 +102,12 @@ class QuizGeneratorService:
     async def get_all_quizzes(self):
         return await GeneratedQuiz.find_all().to_list()
     
+    async def get_generated_quiz_by_quiz_id(self, quiz_id: PydanticObjectId):
+        return await GeneratedQuiz.find(GeneratedQuiz.id == quiz_id).to_list()
+
+    
     async def get_quizzes_by_user(self, user_id: PydanticObjectId):
-        return await GeneratedQuiz.find(GeneratedQuiz.user_id == user_id).to_list()
+        return await GeneratedQuiz.find(GeneratedQuiz.user_id == user_id)
     
     async def start_quiz_attempt(self, user_id: PydanticObjectId, quiz_id: PydanticObjectId):
         attempt = UserGeneratedQuizAttempt(

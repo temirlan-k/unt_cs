@@ -36,6 +36,15 @@ async def get_user_quizzes(
     return await service.get_quizzes_by_user(user_id)
 
 
+
+@generated_quiz_router.get("/{quiz_id}",)
+async def get_generated_quiz_by_quiz_id(
+    quiz_id: PydanticObjectId,
+    service: QuizGeneratorService = Depends(QuizGeneratorService)
+):
+    return await service.get_generated_quiz_by_quiz_id(quiz_id)
+
+
 @generated_quiz_router.post("/{quiz_id}/start", )
 async def start_quiz_attempt(
     quiz_id: PydanticObjectId,

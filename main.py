@@ -49,5 +49,5 @@ if __name__ == "__main__":
         reload=True,
         timeout_graceful_shutdown=360,
         proxy_headers=True,
-        forwarded_allow_ips="*"
+        forwarded_allow_ips="*" 
     )

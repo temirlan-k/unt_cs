@@ -81,6 +81,17 @@ class QuizService:
                 score = 1  
             else:
                 score = 0 
+        if score == 0 or score == 1:
+            mistake = MistakeBankQuiz(
+                user_id=attempt.user_id,
+                question_id=answer_data.question_id,
+                added_at=datetime.utcnow(),
+                quiz_id=attempt.quiz_id,  
+                question_text=question.question_text, 
+                options=[{"label": opt.label,"option_text":opt.option_text,'is_correct':opt.is_correct} for opt in question.options]   # Add options here
+            )
+            await mistake.insert()
+
     
         user_answer = UserAnswer(
             attempt_id=attempt_id,
@@ -149,14 +160,19 @@ class QuizService:
         if not attempts:
             raise HTTPException(status_code=404, detail="No attempts found")
 
-        # Собираем quiz_id и question_id
+        # Собираем quiz_id и attempt_id
         quiz_ids = {attempt.quiz_id for attempt in attempts}
         attempt_ids = {attempt.id for attempt in attempts}
-        user_answers = await UserAnswer.find({"attempt_id": {"$in": list(attempt_ids)}}).to_list()
-        question_ids = {answer.question_id for answer in user_answers}
 
-        # Загружаем квизы и вопросы
+        # Загружаем данные из БД
+        user_answers = await UserAnswer.find({"attempt_id": {"$in": list(attempt_ids)}}).to_list()
         quizzes = await Quiz.find({"_id": {"$in": list(quiz_ids)}}).to_list()
+        
+        # Получаем все вопросы, связанные с этими квизами
+        question_ids = set()
+        for quiz in quizzes:
+            question_ids.update(quiz.question_ids)  # Предполагаем, что в квизе хранится список question_ids
+
         questions = await Question.find({"_id": {"$in": list(question_ids)}}).to_list()
 
         quiz_map = {quiz.id: quiz for quiz in quizzes}
@@ -167,11 +183,12 @@ class QuizService:
             quiz = quiz_map.get(attempt.quiz_id)
             if not quiz:
                 continue
-            max_score = sum(
-                sum(1 for option in question_map[answer.question_id].options if option.is_correct)
-                for answer in user_answers if answer.attempt_id == attempt.id
-            )            
 
+            # **Исправленный max_score** — теперь он считается по всем вопросам квиза
+            max_score = sum(
+                sum(1 for option in question_map[q_id].options if option.is_correct)
+                for q_id in quiz.question_ids if q_id in question_map
+            )
 
             attempt_data = jsonable_encoder(attempt)
             attempt_data["id"] = str(attempt.id)
@@ -183,42 +200,41 @@ class QuizService:
             attempt_data["quiz_year"] = quiz.year
             attempt_data["max_score"] = max_score
 
-            # Подсчет max_score — сумма всех is_correct во всех вопросах квиза
-
-
             attempt_data["answers"] = []
             user_score = 0  # Баллы пользователя за попытку
 
-            for answer in user_answers:
-                if answer.attempt_id == attempt.id:
-                    question = question_map.get(answer.question_id)
-                    if question:
-                        correct_options = {opt.label for opt in question.options if opt.is_correct}
-                        user_selected = set(answer.selected_options)
+            for q_id in quiz.question_ids:
+                question = question_map.get(q_id)
+                if not question:
+                    continue
 
-                        user_score += len(correct_options & user_selected)  # Считаем только правильные совпадения
+                # Находит ответ пользователя (если он есть)
+                answer = next((a for a in user_answers if a.attempt_id == attempt.id and a.question_id == q_id), None)
 
-                        attempt_data["answers"].append({
-                            "question_text": question.question_text,
-                            "question_type": question.type,
-                            "selected_options": answer.selected_options,
-                            "options": [
-                                {
-                                    "label": opt.label,
-                                    "text": opt.option_text,
-                                    "is_correct": opt.is_correct
-                                }
-                                for opt in question.options
-                            ]
-                        })
+                correct_options = {opt.label for opt in question.options if opt.is_correct}
+                user_selected = set(answer.selected_options) if answer else set()
 
-            # attempt_data["score"] = user_score
+                # Подсчет user_score только если пользователь дал ответ
+                user_score += len(correct_options & user_selected)
 
+                attempt_data["answers"].append({
+                    "question_text": question.question_text,
+                    "question_type": question.type,
+                    "selected_options": answer.selected_options if answer else [],
+                    "options": [
+                        {
+                            "label": opt.label,
+                            "text": opt.option_text,
+                            "is_correct": opt.is_correct
+                        }
+                        for opt in question.options
+                    ]
+                })
+
+            attempt_data["score"] = user_score
             response.append(attempt_data)
 
         return response
-
-
 
     async def get_detailed_answers(self, attempt_id: PydanticObjectId, user_id: PydanticObjectId):
         attempt = await UserQuizAttempt.get(attempt_id)

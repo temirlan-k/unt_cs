@@ -48,4 +48,6 @@ if __name__ == "__main__":
         port=9005,
         reload=True,
         timeout_graceful_shutdown=360,
+        proxy_headers=True,
+        forwarded_allow_ips="*"
     )

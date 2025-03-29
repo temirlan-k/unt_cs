@@ -75,13 +75,3 @@ async def get_all_questions_from_mistake(
     """
     return await mistake_bank_quiz_service.get_all_questions_from_mistake(PydanticObjectId(token.get('sub')))
 
-# Ручка для проверки, пуст ли MistakeBank
-# @mistake_bank_router.get("/check_if_mistake_bank_is_empty/", response_model=dict)
-# async def check_if_mistake_bank_is_empty(    
-#     token: dict = Depends(get_current_user),
-#     mistake_bank_quiz_service: MistakeBankQuizService = Depends(MistakeBankQuizService)
-# ):
-#     """
-#     Проверяет, все ли вопросы в MistakeBank были правильно отвечены.
-#     """
-#     return await mistake_bank_quiz_service.check_if_mistake_bank_is_empty(PydanticObjectId(token.get('sub')))

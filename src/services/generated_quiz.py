@@ -214,3 +214,68 @@ class QuizGeneratorService:
 
         await attempt.save()
         return {"message": "Answer submitted", "score": score,"correct_options":correct_options,"selected_options":selected_options}
+
+
+    async def get_attempt_details(self, attempt_id: PydanticObjectId, user_id: PydanticObjectId):
+        """Возвращает подробную информацию о конкретной попытке пользователя, включая неотвеченные вопросы."""
+        attempt = await UserGeneratedQuizAttempt.get(attempt_id)
+        if not attempt:
+            raise HTTPException(status_code=404, detail="Quiz attempt not found")
+        if attempt.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Загружаем квиз
+        quiz = await GeneratedQuiz.get(attempt.quiz_id)
+        if not quiz:
+            raise HTTPException(status_code=404, detail="Quiz not found")
+
+        # Создаём карту вопросов
+        question_map = {q.id: q for q in quiz.questions}
+
+        # Загружаем все ответы пользователя
+        user_answers_map = {ua.question_id: ua for ua in attempt.answers}
+
+        # Вычисляем время прохождения
+        started_at = attempt.started_at
+        ended_at = attempt.finished_at or datetime.utcnow()
+        time_taken = (ended_at - started_at).total_seconds()
+
+        # Вычисляем максимальный балл
+        max_score = sum(2 if q.type == QuestionType.MULTIPLE_CHOICE else 1 for q in quiz.questions)
+        score = attempt.score
+        questions_count = len(quiz.questions)
+
+        # Формируем ответ
+        response = {
+            "attempt_id": str(attempt.id),
+            "quiz_id": str(attempt.quiz_id),
+            "user_id": str(attempt.user_id),
+            "quiz_title": quiz.title,
+            "subject": quiz.subject,
+            "time_taken": time_taken,
+            "max_score": max_score,
+            "score": score,
+            "questions_count": questions_count,
+            "answers": []
+        }
+
+        # Формируем список вопросов, включая пропущенные
+        for question in quiz.questions:
+            user_answer = user_answers_map.get(question.id)
+
+            response["answers"].append({
+                "question_id": str(question.id),
+                "question_text": question.question_text,
+                "options": [
+                    {
+                        "label": opt.label,
+                        "option_text": opt.option_text,
+                        "is_correct": opt.is_correct
+                    }
+                    for opt in question.options
+                ],
+                "selected_options": user_answer.selected_options if user_answer else [],  # Если нет ответа, []
+                "correct_options": [opt.label for opt in question.options if opt.is_correct]
+            })
+
+        return response

@@ -70,6 +70,16 @@ async def get_user_attempts(
     return await service.get_user_attempts(user_id)
 
 
+
+@generated_quiz_router.get("/{attempt_id}/attempt_details", )
+async def get_detailed_answers(
+    attempt_id: PydanticObjectId, 
+    service: QuizGeneratorService = Depends(QuizGeneratorService),
+    token: dict = Depends(get_current_user),
+):
+    """Получить детальные данные по попытке юзера"""
+    return await service.get_attempt_details(attempt_id,PydanticObjectId(token.get('sub')))
+
 @generated_quiz_router.post("/{attempt_id}/answer", )
 async def answer_question(
     attempt_id: PydanticObjectId,

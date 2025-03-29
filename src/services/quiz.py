@@ -154,6 +154,7 @@ class QuizService:
         ]
     
 
+
     async def get_user_quiz_attempts(self, user_id: PydanticObjectId):
         """Возвращает список попыток пользователя с полной информацией о квизах и вопросах."""
         attempts = await UserQuizAttempt.find({"user_id": user_id}).to_list()
@@ -167,16 +168,12 @@ class QuizService:
         # Загружаем данные из БД
         user_answers = await UserAnswer.find({"attempt_id": {"$in": list(attempt_ids)}}).to_list()
         quizzes = await Quiz.find({"_id": {"$in": list(quiz_ids)}}).to_list()
-        
-        # Получаем все вопросы, связанные с этими квизами
-        question_ids = set()
-        for quiz in quizzes:
-            question_ids.update(quiz.question_ids)  # Предполагаем, что в квизе хранится список question_ids
 
-        questions = await Question.find({"_id": {"$in": list(question_ids)}}).to_list()
+        # Получаем все вопросы, связанные с этими квизами
+        questions = await Question.find({"quiz_id": {"$in": list(quiz_ids)}}).to_list()
+        question_map = {question.id: question for question in questions}
 
         quiz_map = {quiz.id: quiz for quiz in quizzes}
-        question_map = {question.id: question for question in questions}
 
         response = []
         for attempt in attempts:
@@ -184,10 +181,13 @@ class QuizService:
             if not quiz:
                 continue
 
-            # **Исправленный max_score** — теперь он считается по всем вопросам квиза
+            # Собираем связанные вопросы
+            quiz_questions = [q for q in questions if q.quiz_id == quiz.id]
+
+            # Исправленный max_score — учитываем разные типы вопросов
             max_score = sum(
-                sum(1 for option in question_map[q_id].options if option.is_correct)
-                for q_id in quiz.question_ids if q_id in question_map
+                2 if question.type == QuestionType.MULTIPLE_CHOICE else 1
+                for question in quiz_questions
             )
 
             attempt_data = jsonable_encoder(attempt)
@@ -203,24 +203,27 @@ class QuizService:
             attempt_data["answers"] = []
             user_score = 0  # Баллы пользователя за попытку
 
-            for q_id in quiz.question_ids:
-                question = question_map.get(q_id)
-                if not question:
-                    continue
-
-                # Находит ответ пользователя (если он есть)
-                answer = next((a for a in user_answers if a.attempt_id == attempt.id and a.question_id == q_id), None)
+            for question in quiz_questions:
+                answer = next((a for a in user_answers if a.attempt_id == attempt.id and a.question_id == question.id), None)
 
                 correct_options = {opt.label for opt in question.options if opt.is_correct}
                 user_selected = set(answer.selected_options) if answer else set()
 
-                # Подсчет user_score только если пользователь дал ответ
-                user_score += len(correct_options & user_selected)
+                # Начисление баллов пользователю
+                if answer:
+                    if question.type == QuestionType.SINGLE_CHOICE:
+                        user_score += 1 if user_selected == correct_options else 0
+                    elif question.type == QuestionType.MULTIPLE_CHOICE:
+                        correct_selected = user_selected & correct_options
+                        if len(correct_selected) == len(correct_options):
+                            user_score += 2
+                        elif len(correct_selected) > 0:
+                            user_score += 1
 
                 attempt_data["answers"].append({
                     "question_text": question.question_text,
                     "question_type": question.type,
-                    "selected_options": answer.selected_options if answer else [],
+                    "selected_options": list(user_selected),
                     "options": [
                         {
                             "label": opt.label,
@@ -235,6 +238,7 @@ class QuizService:
             response.append(attempt_data)
 
         return response
+
 
     async def get_detailed_answers(self, attempt_id: PydanticObjectId, user_id: PydanticObjectId):
         attempt = await UserQuizAttempt.get(attempt_id)

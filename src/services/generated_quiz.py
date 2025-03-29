@@ -83,12 +83,13 @@ class QuizGeneratorService:
             attempt_data["answers"] = []
             for question in quiz.questions:
                 user_answer = user_answers_map.get(question.id)
-
+                correct_options = [option.label for option in question.options if option.is_correct]
                 attempt_data["answers"].append({
                     "question_id": str(question.id),
                     "question_text": question.question_text,
                     "question_type": question.type,
                     "selected_options": user_answer.selected_options if user_answer else [],  # Если нет ответа, массив пустой
+                    "correct_options":correct_options,
                     "options": [
                         {"label": option.label, "text": option.option_text, "is_correct": option.is_correct}
                         for option in question.options

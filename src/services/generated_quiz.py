@@ -6,7 +6,7 @@ from src.models.question import Question
 from src.models.user import User
 from src.models.mistake_bank import MistakeBankQuiz
 from src.schemas.req.generated_quiz import UserAnswerRequest
-from src.models.generated_quiz import GeneratedQuiz, GeneratedQuestion, QuestionOption, UserAnswer, UserGeneratedQuizAttempt
+from src.models.generated_quiz import GeneratedQuiz, GeneratedQuestion, QuestionOption, QuestionType, UserAnswer, UserGeneratedQuizAttempt
 from src.helpers.llm import LLMClient
 from fastapi import HTTPException
 
@@ -47,23 +47,16 @@ class QuizGeneratorService:
     async def get_user_attempts(self, user_id: PydanticObjectId):
         """Возвращает список попыток пользователя с добавлением quiz_title и полной информации о вопросах"""
         attempts = await UserGeneratedQuizAttempt.find(UserGeneratedQuizAttempt.user_id == user_id).to_list()
-        
+
         if not attempts:
             raise HTTPException(status_code=404, detail="No attempts found")
 
-        # Собираем все quiz_id и question_id из попыток
+        # Собираем quiz_id из попыток
         quiz_ids = {attempt.quiz_id for attempt in attempts}
-        question_ids = {answer.question_id for attempt in attempts for answer in attempt.answers}
 
-        # Загружаем все викторины
+        # Загружаем все квизы и создаем мапу quiz_id -> quiz
         quizzes = await GeneratedQuiz.find({"_id": {"$in": list(quiz_ids)}}).to_list()
         quiz_map = {quiz.id: quiz for quiz in quizzes}
-
-        # Собираем все вопросы
-        questions_map = {}
-        for quiz in quizzes:
-            for question in quiz.questions:
-                questions_map[question.id] = question
 
         # Формируем респонс с полной инфой
         response = []
@@ -72,32 +65,39 @@ class QuizGeneratorService:
             if not quiz:
                 continue  # Пропускаем, если quiz_id не найден
 
-            max_score = sum(2 if question.type == "multiple_choice" else 1 for question in quiz.questions)
-            print(max_score,"max_score")
+            # Вычисляем максимальный балл
+            max_score = sum(2 if question.type == QuestionType.MULTIPLE_CHOICE else 1 for question in quiz.questions)
+
             attempt_data = jsonable_encoder(attempt)
             attempt_data["id"] = str(attempt.id)
             attempt_data["user_id"] = str(attempt.user_id)
             attempt_data["quiz_id"] = str(attempt.quiz_id)
             attempt_data["quiz_title"] = quiz.title
             attempt_data["quiz_subject"] = quiz.subject
-            attempt_data["max_score"] = max_score  # Добавляем в респонс
+            attempt_data["max_score"] = max_score
 
-            # Добавляем полные данные о вопросах
-            for answer in attempt_data["answers"]:
-                question = questions_map.get(ObjectId(answer["question_id"]))
-                if question:
-                    answer["question_id"] = str(answer["question_id"])
-                    answer["question_text"] = question.question_text
-                    answer["question_type"] = question.type
-                    answer["options"] = [
+            # Создаем словарь ответов пользователя для быстрого поиска
+            user_answers_map = {answer.question_id: answer for answer in attempt.answers}
+
+            # Добавляем ВСЕ вопросы, включая неотвеченные
+            attempt_data["answers"] = []
+            for question in quiz.questions:
+                user_answer = user_answers_map.get(question.id)
+
+                attempt_data["answers"].append({
+                    "question_id": str(question.id),
+                    "question_text": question.question_text,
+                    "question_type": question.type,
+                    "selected_options": user_answer.selected_options if user_answer else [],  # Если нет ответа, массив пустой
+                    "options": [
                         {"label": option.label, "text": option.option_text, "is_correct": option.is_correct}
                         for option in question.options
                     ]
-            
+                })
+                
             response.append(attempt_data)
 
         return response
-
 
     async def get_all_quizzes(self):
         return await GeneratedQuiz.find_all().to_list()

@@ -66,7 +66,7 @@ class MistakeBankQuizService:
         if is_correct:
             await mistake.delete()
                 
-        return {"message": "Answer submitted", "correct": is_correct}
+        return {"message": "Answer submitted", "correct": is_correct,"correct_options":correct_options,"selected_options":selected_options}
     
     async def complete_mistake_quiz_session(self, user_id: PydanticObjectId, session_id: PydanticObjectId):
         """Завершает MistakeBank-квиз сессию и удаляет правильно отвеченные вопросы."""

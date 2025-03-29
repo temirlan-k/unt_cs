@@ -212,4 +212,4 @@ class QuizGeneratorService:
         attempt.score += score
 
         await attempt.save()
-        return {"message": "Answer submitted", "score": score}
+        return {"message": "Answer submitted", "score": score,"correct_options":correct_options,"selected_options":selected_options}

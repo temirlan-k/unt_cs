@@ -168,12 +168,12 @@ class QuizService:
         # Загружаем данные из БД
         user_answers = await UserAnswer.find({"attempt_id": {"$in": list(attempt_ids)}}).to_list()
         quizzes = await Quiz.find({"_id": {"$in": list(quiz_ids)}}).to_list()
-
-        # Получаем все вопросы, связанные с этими квизами
         questions = await Question.find({"quiz_id": {"$in": list(quiz_ids)}}).to_list()
-        question_map = {question.id: question for question in questions}
 
+        # Создаем мапы для быстрого поиска
+        question_map = {question.id: question for question in questions}
         quiz_map = {quiz.id: quiz for quiz in quizzes}
+        user_answers_map = {(ua.attempt_id, ua.question_id): ua for ua in user_answers}
 
         response = []
         for attempt in attempts:
@@ -181,14 +181,11 @@ class QuizService:
             if not quiz:
                 continue
 
-            # Собираем связанные вопросы
+            # Фильтруем вопросы текущего квиза
             quiz_questions = [q for q in questions if q.quiz_id == quiz.id]
 
-            # Исправленный max_score — учитываем разные типы вопросов
-            max_score = sum(
-                2 if question.type == QuestionType.MULTIPLE_CHOICE else 1
-                for question in quiz_questions
-            )
+            # Вычисляем максимальный балл
+            max_score = sum(2 if q.type == QuestionType.MULTIPLE_CHOICE else 1 for q in quiz_questions)
 
             attempt_data = jsonable_encoder(attempt)
             attempt_data["id"] = str(attempt.id)
@@ -204,7 +201,7 @@ class QuizService:
             user_score = 0  # Баллы пользователя за попытку
 
             for question in quiz_questions:
-                answer = next((a for a in user_answers if a.attempt_id == attempt.id and a.question_id == question.id), None)
+                answer = user_answers_map.get((attempt.id, question.id))
 
                 correct_options = {opt.label for opt in question.options if opt.is_correct}
                 user_selected = set(answer.selected_options) if answer else set()
@@ -221,9 +218,11 @@ class QuizService:
                             user_score += 1
 
                 attempt_data["answers"].append({
+                    "question_id": str(question.id),
                     "question_text": question.question_text,
                     "question_type": question.type,
-                    "selected_options": list(user_selected),
+                    "selected_options": list(user_selected),  # [] если вопрос пропущен
+                    "correct_options": list(correct_options),
                     "options": [
                         {
                             "label": opt.label,
@@ -240,39 +239,36 @@ class QuizService:
         return response
 
 
-    async def get_detailed_answers(self, attempt_id: PydanticObjectId, user_id: PydanticObjectId):
-        attempt = await UserQuizAttempt.get(attempt_id)
-        if not attempt:
-            raise HTTPException(status_code=404, detail="Quiz attempt not found")
-        if attempt.user_id != user_id:
-            raise HTTPException(status_code=403, detail="Access denied")
-        
-        user_answers = await UserAnswer.find({"attempt_id": attempt_id}).to_list()
-        question_list = await Question.find({"_id": {"$in": [ua.question_id for ua in user_answers]}}).to_list()
-
-        return question_list
-
-
     async def get_attempt_details(self, attempt_id: PydanticObjectId, user_id: PydanticObjectId):
-        """Возвращает подробную информацию о конкретной попытке пользователя."""
+        """Возвращает подробную информацию о конкретной попытке пользователя, включая неотвеченные вопросы."""
         attempt = await UserQuizAttempt.get(attempt_id)
         if not attempt:
             raise HTTPException(status_code=404, detail="Quiz attempt not found")
         if attempt.user_id != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
 
-        # Загружаем ответы пользователя на этот квиз
-        user_answers = await UserAnswer.find({"attempt_id": attempt_id}).to_list()
-        question_ids = [ua.question_id for ua in user_answers]
-        
-        # Загружаем вопросы и сам квиз
-        questions = await Question.find({"_id": {"$in": question_ids}}).to_list()
+        # Загружаем квиз
         quiz = await Quiz.get(attempt.quiz_id)
         if not quiz:
             raise HTTPException(status_code=404, detail="Quiz not found")
 
-        # Преобразуем вопросы в удобный формат
+        # Загружаем все вопросы квиза
+        questions = await Question.find({"quiz_id": quiz.id}).to_list()
         question_map = {q.id: q for q in questions}
+
+        # Загружаем все ответы пользователя
+        user_answers = await UserAnswer.find({"attempt_id": attempt_id}).to_list()
+        user_answers_map = {ua.question_id: ua for ua in user_answers}
+
+        # Вычисляем время прохождения
+        started_at = attempt.started_at
+        ended_at = attempt.ended_at or datetime.utcnow()
+        time_taken = (ended_at - started_at).total_seconds()
+
+        # Вычисляем максимальный балл
+        max_score = sum(2 if q.type == QuestionType.MULTIPLE_CHOICE else 1 for q in questions)
+        score = attempt.score
+        questions_count = len(questions)
 
         # Формируем ответ
         response = {
@@ -282,24 +278,30 @@ class QuizService:
             "quiz_title": quiz.title,
             "quiz_variant": quiz.variant,
             "quiz_year": quiz.year,
+            "time_taken": time_taken,
+            "max_score": max_score,
+            "score": score,
+            "questions_count": questions_count,
             "answers": []
         }
 
-        for ua in user_answers:
-            question = question_map.get(ua.question_id)
-            if question:
-                response["answers"].append({
-                    "question_id": str(question.id),
-                    "question_text": question.question_text,
-                    "options": [
-                        {
-                            "label": opt.label,
-                            "option_text": opt.option_text,
-                            "is_correct": opt.is_correct
-                        }
-                        for opt in question.options
-                    ],
-                    "selected_option": ua.selected_options  # Добавляем выбор пользователя
-                })
+        # Формируем список вопросов, включая пропущенные
+        for question in questions:
+            user_answer = user_answers_map.get(question.id)
+
+            response["answers"].append({
+                "question_id": str(question.id),
+                "question_text": question.question_text,
+                "options": [
+                    {
+                        "label": opt.label,
+                        "option_text": opt.option_text,
+                        "is_correct": opt.is_correct
+                    }
+                    for opt in question.options
+                ],
+                "selected_options": user_answer.selected_options if user_answer else [],  # Если нет ответа, []
+                "correct_options": [opt.label for opt in question.options if opt.is_correct]
+            })
 
         return response

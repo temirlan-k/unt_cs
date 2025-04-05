@@ -97,7 +97,7 @@ class ProfileService:
         if not user or not user.profile_photo:
             return {"error": "Photo not found"}
         UPLOAD_DIR = "uploads"
-        # Проверяем, является ли путь абсолютным
+        os.makedirs(UPLOAD_DIR, exist_ok=True)  
         file_path = user.profile_photo
         if file_path is None:
             raise HTTPException(status_code=404,detail='You dont have profile photo')

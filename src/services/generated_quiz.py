@@ -108,7 +108,7 @@ class QuizGeneratorService:
 
     
     async def get_quizzes_by_user(self, user_id: PydanticObjectId):
-        return await GeneratedQuiz.find_one(GeneratedQuiz.user_id == user_id)
+        return await GeneratedQuiz.find(GeneratedQuiz.user_id == user_id)
     
     async def start_quiz_attempt(self, user_id: PydanticObjectId, quiz_id: PydanticObjectId):
         attempt = UserGeneratedQuizAttempt(

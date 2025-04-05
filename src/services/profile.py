@@ -1,5 +1,6 @@
 import os
 import shutil
+import logging
 from beanie import Link, PydanticObjectId
 from bson import ObjectId
 from fastapi import File, HTTPException, UploadFile
@@ -90,7 +91,7 @@ class ProfileService:
         user.profile_photo = new_file_path
         await user.save()
 
-        return {"message": "Profile photo updated successfully", "photo_url": new_file_path}    
+        return {"message": "Profile photo updated successfully", "photo_url": user.profile_photo}    
 
     async def get_profile_photo(self, user_id: str):
         user = await User.get(user_id)
@@ -99,6 +100,8 @@ class ProfileService:
         UPLOAD_DIR = "uploads"
         os.makedirs(UPLOAD_DIR, exist_ok=True)  
         file_path = user.profile_photo
+        print(file_path)
+        logging.debug(f"File Path:{file_path}")
         if file_path is None:
             raise HTTPException(status_code=404,detail='You dont have profile photo')
 

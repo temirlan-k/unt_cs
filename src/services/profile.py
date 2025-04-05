@@ -28,7 +28,8 @@ class ProfileService:
             "first_name": user.first_name,
             "last_name": user.last_name,
             "score":user.total_score,
-            "role":user.role
+            "role":user.role,
+            "profile_photo":user.profile_photo if user.profile_photo else None
         }
 
     async def update_profile(self, user_id: str, profile_data: UserProfileUpdateReq):
@@ -101,9 +102,7 @@ class ProfileService:
         user.profile_photo = new_file_path
         await user.save()
         
-        # URL с абсолютным путем для клиента
-        photo_url = f"/uploads/{new_file_name}"
-        return {"message": "Profile photo updated successfully", "photo_url": photo_url}
+        return {"message": "Profile photo updated successfully", "photo_url": new_file_path}
 
     async def get_profile_photo(self, user_id: str):
         user = await User.get(user_id)
@@ -111,6 +110,7 @@ class ProfileService:
             raise HTTPException(status_code=404, detail="Photo not found")
         
         file_path = user.profile_photo
+        
         logging.debug(f"File Path: {file_path}")
         print(file_path)
         if not os.path.exists(file_path):
@@ -118,6 +118,7 @@ class ProfileService:
         
         return FileResponse(
             file_path, 
+            media_type="image/*",
             headers={
                 "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
                 "Pragma": "no-cache",

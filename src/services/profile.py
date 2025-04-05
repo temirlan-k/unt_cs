@@ -112,7 +112,7 @@ class ProfileService:
         
         file_path = user.profile_photo
         logging.debug(f"File Path: {file_path}")
-        
+        print(file_path)
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail="Profile photo file not found")
         

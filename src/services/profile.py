@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import shutil
 import logging
@@ -91,8 +92,11 @@ class ProfileService:
         user.profile_photo = new_file_path
         await user.save()
 
-        return {"message": "Profile photo updated successfully", "photo_url": user.profile_photo}    
+        photo_url = f"/uploads/{new_file_name}?t={int(datetime.utcnow().timestamp())}"
 
+        return {"message": "Profile photo updated successfully", "photo_url": photo_url}
+    
+    
     async def get_profile_photo(self, user_id: str):
         user = await User.get(user_id)
         if not user or not user.profile_photo:

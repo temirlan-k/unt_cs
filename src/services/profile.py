@@ -105,4 +105,8 @@ class ProfileService:
         if file_path is None:
             raise HTTPException(status_code=404,detail='You dont have profile photo')
 
-        return FileResponse(file_path)
+        return FileResponse(file_path,    headers={
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    })

@@ -81,7 +81,8 @@ class QuizService:
                 score = 1  
             else:
                 score = 0 
-        if score == 0 or score == 1:
+        if (question.type == QuestionType.SINGLE_CHOICE and score == 0) or \
+            (question.type == QuestionType.MULTIPLE_CHOICE and score < 2):
             mistake = MistakeBankQuiz(
                 user_id=attempt.user_id,
                 question_id=answer_data.question_id,

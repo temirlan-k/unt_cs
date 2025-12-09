@@ -82,7 +82,7 @@ class LLMClient:
                 {"role": "user", "content": f'20 вопросов по - {user_prompt}'}
             ]            
             response = await self.openai.chat.completions.create(
-                model='openai/gpt-4o-mini-2024-07-18',
+                model='google/gemma-3-27b-it:free',
                 messages=messages
             )
             llm_response = response.choices[0].message.content

@@ -82,7 +82,7 @@ class LLMClient:
                 {"role": "user", "content": f'20 вопросов по - {user_prompt}'}
             ]            
             response = await self.openai.chat.completions.create(
-                model='google/gemma-3-27b-it:free',
+                model='openai/gpt-4o-mini',
                 messages=messages
             )
             llm_response = response.choices[0].message.content
@@ -90,4 +90,4 @@ class LLMClient:
         except json.JSONDecodeError:
             return {"response": llm_response, "error": "Response is not in JSON format."}
         except Exception as e:
-            raise HTTPException(status_code=500, detail="An unexpected error occurred while processing the AI response.")
+            raise e
